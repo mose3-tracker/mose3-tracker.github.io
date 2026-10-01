@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>MoSE3: Learning World-Space SE(3) at Every Pixel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#fff; --surface:#f7f7f9; --surface-2:#ececef; --line:#e3e3e6;
+  --text:#15171a; --dim:#5b6169; --faint:#8a9099;
+  --axis-x:#d6473a; --axis-y:#2e9c5b; --axis-z:#3b63c7;
+  --maxw:1120px; --measure:760px; --radius:10px;
+  --display:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111316; --surface:#181a1e; --surface-2:#22252a; --line:#2a2e34;
+  --text:#eceef1; --dim:#a2a9b2; --faint:#787f88;
+  --axis-x:#f0685a; --axis-y:#48c179; --axis-z:#6e91e8;
+}}
+:root[data-theme="dark"]{
+  --bg:#111316; --surface:#181a1e; --surface-2:#22252a; --line:#2a2e34;
+  --text:#eceef1; --dim:#a2a9b2; --faint:#787f88;
+  --axis-x:#f0685a; --axis-y:#48c179; --axis-z:#6e91e8;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:400 16.5px/1.65 var(--body);-webkit-font-smoothing:antialiased}
+img,video{max-width:100%}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* Every band is centred; prose is narrowed by --measure, not by the wrapper,
+   so headings and media stay on one axis down the whole page. */
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+.measure{max-width:var(--measure);margin-left:auto;margin-right:auto}
+section{padding:62px 0}
+section + section{border-top:1px solid var(--line)}
+h2{font:600 32px/1.2 var(--display);letter-spacing:-.02em;margin:0 0 12px;text-align:center}
+h2::before{content:"";display:block;width:34px;height:3px;border-radius:2px;margin:0 auto 18px;
+  background:linear-gradient(90deg,var(--axis-x),var(--axis-y),var(--axis-z))}
+.lede{color:var(--dim);text-align:center;margin:0 auto 30px;max-width:var(--measure);font-size:16px}
+h3{font:600 17px/1.3 var(--display);margin:34px 0 12px;text-align:center}
+.prose{text-align:left;color:var(--text);font-size:17.5px;line-height:1.7}
+.prose b{color:var(--axis-z);font-weight:600}
+
+/* ---- sticky nav ---- */
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+nav.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 86%,transparent);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav.top .wrap{display:flex;align-items:center;gap:18px;height:54px}
+nav.top .brand{font:700 18px/1 var(--display);letter-spacing:-.02em;color:var(--text);text-decoration:none}
+nav.top .navlinks{display:flex;gap:2px;margin-left:auto;overflow-x:auto;scrollbar-width:none}
+nav.top .navlinks a{font:500 13.5px/1 var(--body);color:var(--dim);text-decoration:none;
+  padding:8px 11px;border-radius:7px;white-space:nowrap;transition:background .15s,color .15s}
+nav.top .navlinks a:hover{background:var(--surface-2);color:var(--text)}
+nav.top .navpaper{display:inline-flex;align-items:center;gap:6px;font:500 13px/1 var(--body);
+  color:var(--bg);background:var(--text);padding:8px 13px;border-radius:999px;text-decoration:none;flex:none}
+nav.top .navpaper:hover{background:var(--axis-z)}
+@media (max-width:760px){nav.top .navpaper{display:none}}
+
+/* ---- hero ---- */
+header{padding:78px 0 52px;text-align:center;position:relative;
+  background:
+    radial-gradient(55% 60% at 12% 0%,rgba(59,99,199,.14),transparent 70%),
+    radial-gradient(45% 55% at 88% 8%,rgba(214,71,58,.10),transparent 70%),
+    radial-gradient(40% 40% at 50% 100%,rgba(46,156,91,.08),transparent 70%)}
+.venue{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--faint);margin:0 0 16px}
+h1{font:700 clamp(34px,5.4vw,56px)/1.12 var(--display);letter-spacing:-.03em;
+  margin:0 auto 22px;max-width:24ch;text-wrap:balance}
+h1 .m{color:var(--axis-z)}
+.authors{font-size:21px;margin:0 auto 8px;max-width:80ch}
+.authors .au{white-space:nowrap}
+.authors a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--line)}
+.authors sup{color:var(--faint);font-size:.72em}
+.affil{color:var(--dim);font-size:18px;margin:0 auto 6px}
+.affil sup{color:var(--faint);font-size:.72em}
+.equal{color:var(--faint);font-size:13px;margin:0 auto 24px}
+.links{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.links a{display:inline-flex;align-items:center;gap:8px;background:var(--text);color:var(--bg);
+  text-decoration:none;padding:11px 22px;border-radius:999px;font:500 14.5px/1 var(--body);
+  border:1px solid var(--text);box-shadow:0 6px 18px -10px rgba(0,0,0,.5);
+  transition:background .15s,border-color .15s,color .15s,transform .15s}
+.links a:hover{background:var(--axis-z);border-color:var(--axis-z);color:#fff;transform:translateY(-1px)}
+.links a svg{opacity:.9}
+.links a.off{background:transparent;color:var(--faint);border-color:var(--line);
+  pointer-events:none}
+.tldr{margin:28px auto 0;max-width:64ch;font-size:17px;line-height:1.55;color:var(--dim);
+  text-wrap:pretty}
+.tldr .k{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--faint);margin-right:9px}
+.tldr b{color:var(--text);font-weight:600}
+
+/* ---- teaser carousel ---- */
+.carousel{position:relative;border-radius:14px;overflow:hidden;
+  border:1px solid var(--line);background:#000;box-shadow:0 24px 60px -30px rgba(0,0,0,.45)}
+.stage{position:relative;aspect-ratio:16/9}
+.slide{position:absolute;inset:0;margin:0;opacity:0;transition:opacity .45s ease;
+  pointer-events:none}
+.slide[data-on]{opacity:1}
+.slide video{width:100%;height:100%;object-fit:contain;display:block}
+.nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;
+  border-radius:50%;border:1px solid rgba(255,255,255,.28);background:rgba(10,12,16,.5);
+  color:#fff;font:300 22px/1 var(--body);cursor:pointer;display:grid;place-items:center;
+  opacity:0;transition:opacity .18s,background .18s}
+.carousel:hover .nav,.nav:focus-visible{opacity:1}
+.nav:hover{background:rgba(10,12,16,.78)}
+.nav.prev{left:12px} .nav.next{right:12px}
+.carthumbs{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+.dot{width:96px;height:58px;padding:0;border-radius:8px;border:2px solid transparent;cursor:pointer;
+  background:#000;overflow:hidden;opacity:.7;transition:opacity .18s,border-color .18s,transform .18s}
+.dot img{width:100%;height:100%;object-fit:cover;display:block}
+.dot:hover{opacity:1}
+.dot[aria-pressed="true"]{border-color:var(--axis-z);opacity:1;transform:translateY(-2px)}
+.allteasers{text-align:center;margin:12px 0 0;font-size:14px}
+.allteasers a{color:var(--dim)}
+.caption{font-size:14px;color:var(--faint);margin:14px auto 0;text-align:center;
+  max-width:110ch;line-height:1.6}
+
+/* ---- clip browser (one player, a view switcher, a thumbnail grid) ---- */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px}
+.segwrap{display:flex;justify-content:center}
+.seg{display:inline-flex;flex-wrap:wrap;justify-content:center;border:1px solid var(--line);border-radius:9px;padding:3px;
+  margin-bottom:18px;background:var(--bg);flex-wrap:wrap;justify-content:center}
+.seg button{font-family:var(--mono);font-size:12.5px;letter-spacing:.02em;padding:8px 15px;
+  border-radius:6px;border:0;background:transparent;color:var(--dim);cursor:pointer;
+  transition:background .15s,color .15s}
+.seg button:hover:not(:disabled){color:var(--text)}
+.seg button[aria-pressed="true"]{background:var(--surface-2);color:var(--text)}
+.seg button:disabled{color:var(--line);cursor:not-allowed}
+/* The box takes the video's shape rather than the other way round.
+   It used to be a fixed 16:9 with `.player video{height:100%}`, but the box's
+   own height came from aspect-ratio, so that 100% resolved against an auto
+   height and the video laid itself out at its intrinsic ratio -- taller than
+   the box for a portrait clip, with object-fit then having nothing to do and
+   overflow:hidden cutting the bottom off. The teaser carousel escaped this
+   because its slides are position:absolute;inset:0, which is a definite height.
+   Sizing from the video removes the failure mode instead of patching it. */
+.player{position:relative;border-radius:var(--radius);overflow:hidden;background:#000;
+  width:fit-content;max-width:100%;min-height:200px;margin:0 auto;
+  display:grid;place-items:center}
+/* Three square panels side by side, so 16:9 would be mostly black bar. */
+.player.ak3{width:100%;aspect-ratio:3/1}
+.player video{max-width:100%;max-height:76vh;width:auto;height:auto;display:block}
+.player.ak3 video{width:100%;height:100%;object-fit:contain}
+.vnote{font-family:var(--mono);font-size:12px;color:var(--faint);text-align:center;
+  margin:12px auto 0;max-width:68ch;min-height:2.6em;line-height:1.6}
+.rgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.rcell{margin:0;aspect-ratio:16/10;background:#000;border-radius:10px;overflow:hidden;position:relative}
+.rcell video{width:100%;height:100%;object-fit:contain;display:block}
+.rcell.na{display:grid;place-items:center;color:var(--faint);font-size:13px}
+.pager{display:flex;gap:14px;justify-content:center;align-items:center;margin-top:14px}
+.pager button{width:36px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--bg);
+  color:var(--text);font-size:18px;cursor:pointer}
+.pager button:hover{border-color:var(--dim)}
+.pager span{font-size:12.5px;color:var(--dim);min-width:80px;text-align:center}
+@media (max-width:900px){.rgrid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.rgrid{grid-template-columns:1fr}}
+.thumb-grid{display:grid;grid-template-columns:repeat(auto-fill,104px);justify-content:center;
+  gap:10px;margin-top:20px}
+/* Two rows of thumbnails, the rest by scrolling (user 2026-09-29). The grid keeps
+   its own margin-top, so the box's max-height is 20 + 2*104 + 10 + a little room
+   for the selected tile's border/lift. */
+.thumb-scroll{max-height:246px;overflow-y:auto;overscroll-behavior:contain;padding:0 4px 6px;
+  border-radius:10px;
+  -webkit-mask-image:linear-gradient(#000 calc(100% - 26px),transparent);
+  mask-image:linear-gradient(#000 calc(100% - 26px),transparent)}
+.thumb-scroll .thumb-grid{margin-top:20px}
+.thumb-scroll::-webkit-scrollbar{width:8px}
+.thumb-scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+.thumb{position:relative;border-radius:8px;overflow:hidden;cursor:pointer;padding:0;
+  border:2px solid transparent;aspect-ratio:1/1;background:var(--surface-2);
+  transition:border-color .15s,transform .15s}
+.thumb img{width:100%;height:100%;object-fit:contain;opacity:.88;transition:opacity .15s;display:block}
+.thumb:hover{transform:translateY(-2px)}
+.thumb:hover img,.thumb[aria-pressed="true"] img{opacity:1}
+.thumb[aria-pressed="true"]{border-color:var(--axis-z)}
+.thumb-label{position:absolute;bottom:0;left:0;right:0;font-size:10.5px;font-weight:500;
+  color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.78));padding:12px 4px 3px;
+  text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.meta{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-top:16px;
+  font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+.meta i{font-style:normal;color:var(--dim)}
+
+
+/* ---- viser ---- */
+/* One bar drives both the 3D scene and the input video, D4RT-style: the page
+   owns the clock, seeks the static player every frame through the API the
+   patched client exposes (viser_client_patch.js), and keeps the <video> on the
+   same time. The video sits inside the viewer, top-left, like D4RT's frame
+   overlay; the Layers box has a switch to hide it. */
+.viewer{width:100%;aspect-ratio:16/10;min-height:560px;background:#000;border-radius:var(--radius);
+  overflow:hidden;border:1px solid var(--line)}
+.viewer iframe{width:100%;height:100%;border:0;display:block}
+.pip{position:absolute;top:12px;left:12px;z-index:5;width:26%;min-width:150px;max-width:300px;
+  border-radius:8px;overflow:hidden;background:#000;border:1px solid rgba(255,255,255,.4);
+  box-shadow:0 6px 22px -8px rgba(0,0,0,.7)}
+.pip video{width:100%;display:block}
+.pip[hidden]{display:none}
+/* The bar floats inside the viewer along the bottom edge, like D4RT's
+   timeline, in the same translucent style as the Layers box. */
+.pbar{position:absolute;left:50%;transform:translateX(-50%);width:min(56%,540px);bottom:12px;
+  z-index:5;display:flex;align-items:center;
+  gap:12px;padding:7px 12px;border-radius:9px;background:rgba(252,252,253,.93);
+  backdrop-filter:blur(8px);border:1px solid rgba(20,22,30,.12);
+  box-shadow:0 6px 22px -8px rgba(0,0,0,.45)}
+.pbar button{width:32px;height:28px;border-radius:7px;border:1px solid rgba(20,22,30,.16);
+  background:#fff;color:#2b2f38;font-size:12px;cursor:pointer;flex:none}
+.pbar button:hover{border-color:#8a9099}
+.pbar input[type=range]{flex:1;accent-color:#3b63c7;min-width:0}
+.pbar .ptime{font:400 12px/1 var(--mono);color:#5b6169;min-width:92px;text-align:right;
+  font-variant-numeric:tabular-nums}
+
+/* ---- runtime badges on the comparison panels ---- */
+.cmpwrap{position:relative}
+.cmpwrap .rt{position:absolute;bottom:5%;display:inline-flex;align-items:center;gap:6px;
+  font:600 clamp(12px,1.5vw,16px)/1 var(--body);color:#fff;background:rgba(0,0,0,.66);
+  padding:7px 11px;border-radius:8px;backdrop-filter:blur(3px);pointer-events:none}
+.cmpwrap .rt i{font-style:normal;font-weight:400;opacity:.85;font-size:.85em}
+.cmpwrap .rt.l{left:1.6%} .cmpwrap .rt.r{left:51.4%}
+/* ---- runtime cards (comparison) ---- */
+.rt{display:grid;gap:14px;max-width:980px;margin:0 auto}
+.rtrow{display:grid;grid-template-columns:120px 1fr auto 1fr;gap:12px 14px;align-items:stretch}
+.rtbars{grid-column:2/5;display:grid;gap:6px}
+.rtbar{height:22px;border-radius:5px;position:relative;min-width:6px}
+.rtbar.pp{background:color-mix(in srgb,var(--axis-x) 55%,var(--bg))}
+.rtbar.ours{background:var(--axis-y)}
+.rtbar span{position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:8px;
+  font:600 12px var(--mono);color:var(--dim);white-space:nowrap}
+.rtbar.pp span{left:auto;right:10px;margin:0;color:#fff}
+.rtk{display:flex;align-items:center;gap:8px}
+.rtcard.pp .rtk{color:var(--axis-x)} .rtcard.ours .rtk{color:var(--axis-y)}
+.rtx small{display:block;font:600 13px var(--body);letter-spacing:.04em;text-transform:uppercase;text-align:center}
+.rtclip{align-self:center;font:600 16px var(--display)}
+.rtcard{border-radius:12px;padding:16px 18px;border:1px solid var(--line);background:var(--surface)}
+.rtcard.ours{background:color-mix(in srgb,var(--axis-y) 12%,var(--bg));border-color:color-mix(in srgb,var(--axis-y) 45%,var(--line))}
+.rtcard.pp{background:color-mix(in srgb,var(--axis-x) 8%,var(--bg))}
+.rtk{font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.rtv{font:700 40px/1.05 var(--display);letter-spacing:-.02em}
+.rtcard.ours .rtv{color:var(--axis-y)} .rtcard.pp .rtv{color:var(--axis-x)}
+.rts{font-size:12px;color:var(--faint);font-family:var(--body);font-weight:400}
+.rtx{align-self:center;font:700 22px var(--display);color:var(--axis-y);white-space:nowrap;padding:0 4px}
+@media (max-width:760px){.rtrow{grid-template-columns:1fr}.rtclip{text-align:center}.rtx{text-align:center}}
+
+/* ---- Art-Kubric ---- */
+.akgrid{display:grid;gap:16px;grid-template-columns:1fr}
+.akrow{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;
+  overflow:hidden}
+.akrow video{width:100%;display:block;background:#000}
+.dcap{font-size:13.5px;color:var(--dim);text-align:center;padding:10px 12px}
+.dcap i{font-style:normal;color:var(--dim)}
+
+/* ---- embedding gallery ---- */
+/* Three per row is the comparison-page rule the advisor set; equal-size tiles
+   so no clip reads as the important one. */
+.emgrid{display:grid;gap:14px;grid-template-columns:repeat(3,1fr)}
+.emcell{margin:0;background:var(--surface);border:1px solid var(--line);
+  border-radius:10px;overflow:hidden;transition:transform .15s,box-shadow .15s}
+.emcell:hover,.akrow:hover{transform:translateY(-2px);box-shadow:0 14px 30px -18px rgba(0,0,0,.45)}
+.emcell video{width:100%;display:block;background:#000;aspect-ratio:16/10;object-fit:cover}
+/* sliding reveal: the embedding is clipped from the right, the input shows through */
+.rv{position:relative;aspect-ratio:16/10;background:#000;overflow:hidden;cursor:ew-resize;
+  touch-action:none;user-select:none}
+.rv video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;aspect-ratio:auto}
+.rv .top{clip-path:inset(0 0 0 50%)}     /* embedding on the right of the divider, input on the left */
+.rvline{position:absolute;top:0;bottom:0;left:50%;width:2px;margin-left:-1px;background:#fff;
+  box-shadow:0 0 0 1px rgba(0,0,0,.35);pointer-events:none}
+.rvknob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px;
+  border-radius:50%;background:#fff;color:#15171a;display:grid;place-items:center;font-size:16px;
+  box-shadow:0 2px 10px rgba(0,0,0,.45)}
+.rvtag{position:absolute;bottom:8px;font:600 11px/1 var(--mono);padding:5px 8px;border-radius:5px;
+  background:rgba(0,0,0,.6);color:#fff;pointer-events:none;letter-spacing:.03em}
+.rvtag.l{left:8px} .rvtag.r{right:8px}
+.emcell video.fit{object-fit:contain;background:#0b0c0f}
+.emcell figcaption{font-size:13px;color:var(--dim);padding:9px 12px;text-align:center}
+.emcell figcaption b{color:var(--text);font-weight:600}
+@media (max-width:900px){.emgrid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.emgrid{grid-template-columns:1fr}}
+
+/* ---- figures ---- */
+.figbox{border:1px solid var(--line);border-radius:14px;padding:20px;
+  background:var(--surface);text-align:center;box-shadow:0 18px 40px -30px rgba(0,0,0,.35)}
+.figbox img{border-radius:5px}
+
+/* ---- benchmark charts ---- */
+.charts{display:flex;flex-direction:column;gap:18px}
+.legend{display:flex;gap:14px 20px;flex-wrap:wrap;justify-content:center;font-size:13px;color:var(--dim)}
+.legend .lg{display:inline-flex;align-items:center;gap:7px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.brow{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px 6px}
+.brow h4{margin:0 0 4px;font:600 14px/1.3 var(--display);color:var(--text)}
+.bcells{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}
+.bcell{flex:1 1 180px;max-width:240px}
+.bc{width:100%;height:auto;display:block}
+.bct{font:500 12px var(--body);fill:var(--text)}
+.bcv{font:500 10.5px var(--mono);fill:var(--text)}
+.bcna{font:400 11px var(--mono);fill:var(--faint)}
+.bc .sub{font-size:8px;baseline-shift:sub}
+.bcb{stroke:var(--line);stroke-width:1}
+.bc path:hover{opacity:.8}
+.s0{fill:#2a78d6;background:#2a78d6} .s1{fill:#eb6834;background:#eb6834} .s2{fill:#1baf7a;background:#1baf7a}
+.s3{fill:#eda100;background:#eda100} .s4{fill:#e87ba4;background:#e87ba4} .s5{fill:#008300;background:#008300}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .s0{fill:#3987e5;background:#3987e5}
+  :root:not([data-theme="light"]) .s1{fill:#d95926;background:#d95926} :root:not([data-theme="light"]) .s3{fill:#c98500;background:#c98500}
+  :root:not([data-theme="light"]) .s4{fill:#d55181;background:#d55181}}
+details.tables{margin-top:22px} details.tables summary{cursor:pointer;color:var(--dim);font-size:14px}
+
+/* ---- tables ---- */
+.tscroll{overflow-x:auto;border:1px solid var(--line);border-radius:11px;background:var(--bg)}
+table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+th,td{padding:7px 6px;text-align:center;border-bottom:1px solid var(--line)}
+/* the SE(3) table has 17 columns: give this section a wider column than the prose */
+#results .wrap{max-width:1160px}
+#browse .wrap{max-width:1380px}            /* the 2x3 results grid gets more room */
+#results .tscroll{border:0;border-radius:0}
+#results .caption{max-width:120ch;font-size:14px}
+#compare .akgrid{max-width:680px;margin:0 auto}   /* the two-panel videos, a bit smaller than full width */
+tbody tr{background:var(--bg)}
+tbody tr:nth-child(even){background:var(--surface)}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:inherit}
+thead tr{background:var(--bg)}
+thead th{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--faint);font-weight:500}
+thead tr:first-child th{border-bottom:0;padding-bottom:2px}
+thead th.grp span{display:block;margin:0 10px;padding-bottom:5px;border-bottom:2px solid var(--dim);text-align:center}
+tbody tr:last-child td{border-bottom:0}
+tbody tr.ours{background:color-mix(in srgb,var(--axis-z) 9%,var(--bg))}
+tbody tr.ours td:first-child{font-weight:600;box-shadow:inset 3px 0 0 var(--axis-z)}
+td.b{font-weight:700;color:var(--text)}
+td.u{text-decoration:underline;text-underline-offset:3px}
+
+pre{background:var(--surface);border:1px solid var(--line);color:var(--text);padding:18px 20px;
+  border-radius:11px;overflow-x:auto;font:400 13px/1.6 var(--mono);text-align:left}
+footer{padding:40px 0 70px;color:var(--dim);font-size:14px;
+  text-align:center;border-top:1px solid var(--line);background:var(--surface)}
+footer p{margin:0 0 8px}
+footer .fine{color:var(--faint);font-family:var(--mono);font-size:11.5px}
+button:focus-visible,a:focus-visible{outline:2px solid var(--axis-z);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:640px){
+  .drow{grid-template-columns:1fr}
+  .viewer{min-height:260px}
+  .pip{width:34%;min-width:110px}
+  .pbar{width:calc(100% - 16px);bottom:8px;gap:8px;padding:6px 8px}
+  .pbar .ptime{min-width:0}
+  section{padding:44px 0}
+  .thumb-grid{grid-template-columns:repeat(auto-fill,68px)}
+  .thumb-scroll{max-height:176px}
+}
+
+/* ---- 3D layer toggles, floated over the viewer ---- */
+/* Below the canvas they were a reach away from the thing they change; over it
+   the control and its effect are in one place. Light in both themes, because it
+   sits on the viewer's black canvas either way. */
+.viewer{position:relative}
+.layers{position:absolute;top:12px;right:12px;z-index:5;display:flex;flex-direction:column;
+  gap:2px;padding:10px 12px 11px;border-radius:9px;min-width:188px;
+  background:rgba(252,252,253,.93);backdrop-filter:blur(8px);
+  border:1px solid rgba(20,22,30,.12);box-shadow:0 6px 22px -8px rgba(0,0,0,.45)}
+.layers h4{margin:0 0 6px;font:600 10px/1 var(--mono);letter-spacing:.12em;
+  text-transform:uppercase;color:#8a9099}
+.layers label{display:flex;align-items:center;gap:8px;cursor:pointer;
+  font:400 12.5px/1.9 var(--body);color:#2b2f38;white-space:nowrap}
+.layers label:hover{color:#15171a}
+.layers input{accent-color:#3b63c7;width:13px;height:13px;cursor:pointer;margin:0}
+.layers hr{border:0;border-top:1px solid rgba(20,22,30,.12);margin:6px 0 4px}
+@media (max-width:640px){.layers{position:static;margin-top:10px;min-width:0}}
+
+</style>
+</head><body id="top">
+<nav class="top"><div class="wrap">
+  <a class="brand" href="#top"><span class="m">MoSE3</span></a>
+  <div class="navlinks"><a href="#abstract">Abstract</a><a href="#explore">3D</a><a href="#browse">Results</a><a href="#embeddings">Embeddings</a><a href="#compare">Comparison</a><a href="#results">Benchmarks</a><a href="#method">Method</a><a href="#artkubric">Dataset</a><a href="#bibtex">BibTeX</a></div>
+  <a class="navpaper" href="paper.pdf"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>Paper</a>
+</div></nav>
+
+<header><div class="wrap">
+  <p class="venue">NeurIPS 2026 (Spotlight)</p>
+  <h1><span class="m">MoSE3</span>: Learning World-Space SE(3) at Every Pixel</h1>
+  <p class="authors"><span class="au"><a href="https://joannaccjh.github.io/">Jiahuan Cheng</a><sup>1,3*</sup></span>, <span class="au"><a href="https://sky-lzy.github.io/">Zhiyi Li</a><sup>4*</sup></span>, <span class="au"><a href="https://tianx-ia.github.io/">Tian Xia</a><sup>1*</sup></span>, <span class="au"><a href="https://ruojincai.github.io/">Ruojin Cai</a><sup>1,2</sup></span>, <span class="au"><a href="https://yilundu.github.io/">Yilun Du</a><sup>1,2</sup></span>, <span class="au"><a href="https://qianqianwang68.github.io/">Qianqian Wang</a><sup>1,2</sup></span></p>
+  <p class="affil"><sup>1</sup>Harvard University &nbsp; <sup>2</sup>Kempner Institute &nbsp; <sup>3</sup>Johns Hopkins University &nbsp; <sup>4</sup>MIT</p>
+  <p class="equal"><sup>*</sup>Equal contribution</p>
+  <div class="links"><a class="" href="paper.pdf"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>Paper</a><a class="off" href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l16 16M20 4L4 20" opacity=".35"/><path d="M6 12h12M12 6v12"/></svg>arXiv</a><a class="off" href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>Code</a><a class="off" href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></svg>Art-Kubric</a></div>
+  <p class="tldr"><span class="k">TL;DR</span>MoSE3 predicts dense, world-space <b>SE(3)</b> motion at every pixel of a
+monocular RGB video &mdash; not just where each pixel goes, but how it rotates and which
+pixels move together as one rigid body.</p>
+</div></header>
+
+<section style="padding-top:8px"><div class="wrap">
+  <div class="carousel" id="car">
+    <div class="stage"><figure class="slide" data-on=1><video src="assets/teaser/collision__dominoes_falling_8102764.mp4" poster="assets/gallery/collision__dominoes_falling_8102764.webp" loop muted playsinline preload="auto"></video></figure><figure class="slide"><video src="assets/teaser/pexels_deformable__pexels_paper_map_wind_7606344.mp4" poster="assets/gallery/pexels_deformable__pexels_paper_map_wind_7606344.webp" loop muted playsinline preload="none"></video></figure><figure class="slide"><video src="assets/teaser/pt_double_stretch_zebra.mp4" poster="assets/gallery/pt_double_stretch_zebra.webp" loop muted playsinline preload="none"></video></figure><figure class="slide"><video src="assets/teaser/pt_single_lift_cloth.mp4" poster="assets/gallery/pt_single_lift_cloth.webp" loop muted playsinline preload="none"></video></figure><figure class="slide"><video src="assets/teaser/butterfly.mp4" poster="assets/gallery/butterfly.webp" loop muted playsinline preload="none"></video></figure><figure class="slide"><video src="assets/teaser/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206.mp4" poster="assets/gallery/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206.webp" loop muted playsinline preload="none"></video></figure><figure class="slide"><video src="assets/teaser/articulated__scissors_cutting_paper_6977414.mp4" poster="assets/gallery/articulated__scissors_cutting_paper_6977414.webp" loop muted playsinline preload="none"></video></figure></div>
+    <button class="nav prev" aria-label="Previous">&#8249;</button>
+    <button class="nav next" aria-label="Next">&#8250;</button>
+  </div>
+  <div class="carthumbs" id="cardots"><button class="dot" data-i="0" aria-pressed="true" aria-label="Dominoes falling" title="Dominoes falling"><img src="assets/icon/collision__dominoes_falling_8102764.webp" alt="" loading="lazy"></button><button class="dot" data-i="1" aria-pressed="false" aria-label="Paper map wind" title="Paper map wind"><img src="assets/icon/pexels_deformable__pexels_paper_map_wind_7606344.webp" alt="" loading="lazy"></button><button class="dot" data-i="2" aria-pressed="false" aria-label="Double stretch zebra" title="Double stretch zebra"><img src="assets/icon/pt_double_stretch_zebra.webp" alt="" loading="lazy"></button><button class="dot" data-i="3" aria-pressed="false" aria-label="Single lift cloth" title="Single lift cloth"><img src="assets/icon/pt_single_lift_cloth.webp" alt="" loading="lazy"></button><button class="dot" data-i="4" aria-pressed="false" aria-label="Butterfly" title="Butterfly"><img src="assets/icon/butterfly.webp" alt="" loading="lazy"></button><button class="dot" data-i="5" aria-pressed="false" aria-label="Indian sari woman dancing" title="Indian sari woman dancing"><img src="assets/icon/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206.webp" alt="" loading="lazy"></button><button class="dot" data-i="6" aria-pressed="false" aria-label="Scissors cutting paper" title="Scissors cutting paper"><img src="assets/icon/articulated__scissors_cutting_paper_6977414.webp" alt="" loading="lazy"></button></div>
+  <p class="allteasers"><a href="teasers.html">More results &rarr;</a></p>
+</div></section>
+
+<section id="abstract"><div class="wrap">
+  <h2>Abstract</h2>
+  <p class="prose measure">Dense 2D/3D point tracking has been the dominant paradigm for modeling
+motion in dynamic scenes, but a point track is just a 3-DoF translation curve per pixel:
+it captures where pixels go, not the rotation of the underlying part, nor which pixels
+move together as one body. We propose <b>MoSE3</b>, the first feed-forward model that
+predicts dense SE(3) motion from monocular RGB video, producing full 6-DoF rigid
+transforms at every pixel in world space. Per-pixel SE(3) motion offers a richer view of
+how a scene moves: rotation, translation, and grouping all at once. Directly predicting
+SE(3) is challenging: rotations lie on a curved manifold that is ill-suited to Euclidean
+regression, and annotations for SE(3) are particularly difficult to acquire. To address
+these challenges, MoSE3 predicts per-pixel SE(3) through two jointly learned
+intermediates, 3D point tracks and rigidity embeddings, and recovers SE(3) by
+differentiably fitting transforms within each soft rigid cluster, enabling end-to-end
+prediction and supervision. To close the data gap, we introduce <b>Art-Kubric</b>, a
+large-scale synthetic dataset with dense SE(3) and rigidity labels for articulated scenes
+with rich physical interactions. MoSE3 achieves state-of-the-art SE(3) estimation at
+pixel, part, and object levels on both rigid and articulated benchmarks, and
+state-of-the-art 3D point tracking on three datasets, while showing strong generalization
+to real-world videos despite being trained solely on synthetic motion data.</p>
+</div></section>
+
+
+<section id="explore"><div class="wrap">
+  <h2>Explore in 3D</h2>
+  <p class="lede">The predictions in the world space they were made in. Drag to turn the
+  scene and scroll to zoom; use the bar at the bottom to move through time.</p>
+  <div class="panel">
+    <div class="viewer">
+      <iframe id="viser" title="Interactive 3D viewer" allowfullscreen></iframe>
+      <div class="pip" id="vpip"><video id="vsync" muted playsinline preload="auto"></video></div>
+      <div class="layers" id="layerbox"><h4>Layers</h4><label title="The scene as the model reconstructs it, in image colour."><input type="radio" name="cloud" data-layer="/RGB_point_cloud" checked>Point cloud</label><label title="The same points coloured by which parts move together."><input type="radio" name="cloud" data-layer="/Rigidity_embedding">Rigidity embedding</label><hr><label title="A coordinate frame at each sampled point."><input type="checkbox" data-layer="/SE3_axes" checked>SE(3) axes</label><label title="The predicted 3D point tracks."><input type="checkbox" data-layer="/Trajectories">Trajectories</label><hr>
+        <label title="The frames the model saw, on the same clock"><input type="checkbox" id="pipbox" checked>Input video</label></div>
+      <div class="pbar">
+        <button id="pplay" aria-label="Play or pause">&#10074;&#10074;</button>
+        <input type="range" id="pslider" min="0" max="1" step="0.01" value="0" aria-label="Time">
+        <span class="ptime" id="ptime">0.0 / 0.0 s</span>
+      </div>
+    </div>
+    <div class="thumb-scroll"><div class="thumb-grid" id="vclip"><button class="thumb" data-c="agibot0" aria-pressed="true" title="AgiBot World"><img src="assets/icon/agibot0.webp" alt="" loading="lazy"><span class="thumb-label">AgiBot World</span></button><button class="thumb" data-c="articulated__scissors_cutting_paper_6977414" aria-pressed="false" title="Scissors cutting paper"><img src="assets/icon/articulated__scissors_cutting_paper_6977414.webp" alt="" loading="lazy"><span class="thumb-label">Scissors cutting paper</span></button><button class="thumb" data-c="butterfly" aria-pressed="false" title="Butterfly"><img src="assets/icon/butterfly.webp" alt="" loading="lazy"><span class="thumb-label">Butterfly</span></button><button class="thumb" data-c="cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206" aria-pressed="false" title="Indian sari woman dancing"><img src="assets/icon/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206.webp" alt="" loading="lazy"><span class="thumb-label">Indian sari woman dancing</span></button><button class="thumb" data-c="collision__dominoes_falling_8102764" aria-pressed="false" title="Dominoes falling"><img src="assets/icon/collision__dominoes_falling_8102764.webp" alt="" loading="lazy"><span class="thumb-label">Dominoes falling</span></button><button class="thumb" data-c="droid0" aria-pressed="false" title="DROID"><img src="assets/icon/droid0.webp" alt="" loading="lazy"><span class="thumb-label">DROID</span></button><button class="thumb" data-c="dycheck_iphone__spin" aria-pressed="false" title="Spin"><img src="assets/icon/dycheck_iphone__spin.webp" alt="" loading="lazy"><span class="thumb-label">Spin</span></button><button class="thumb" data-c="dycheck_iphone__teddy" aria-pressed="false" title="Teddy"><img src="assets/icon/dycheck_iphone__teddy.webp" alt="" loading="lazy"><span class="thumb-label">Teddy</span></button><button class="thumb" data-c="epic_P10_03_shake_pot" aria-pressed="false" title="Shake pot"><img src="assets/icon/epic_P10_03_shake_pot.webp" alt="" loading="lazy"><span class="thumb-label">Shake pot</span></button><button class="thumb" data-c="pexels_deformable__pexels_blue_dress_spinning_park_15017751" aria-pressed="false" title="Blue dress spinning park"><img src="assets/icon/pexels_deformable__pexels_blue_dress_spinning_park_15017751.webp" alt="" loading="lazy"><span class="thumb-label">Blue dress spinning park</span></button><button class="thumb" data-c="pexels_deformable__pexels_fitting_room_dress_8388366" aria-pressed="false" title="Fitting room dress"><img src="assets/icon/pexels_deformable__pexels_fitting_room_dress_8388366.webp" alt="" loading="lazy"><span class="thumb-label">Fitting room dress</span></button><button class="thumb" data-c="pexels_deformable__pexels_girl_mother_making_bed_10554783" aria-pressed="false" title="Girl mother making bed"><img src="assets/icon/pexels_deformable__pexels_girl_mother_making_bed_10554783.webp" alt="" loading="lazy"><span class="thumb-label">Girl mother making bed</span></button><button class="thumb" data-c="pexels_deformable__pexels_men_folding_blanket_8979704" aria-pressed="false" title="Men folding blanket"><img src="assets/icon/pexels_deformable__pexels_men_folding_blanket_8979704.webp" alt="" loading="lazy"><span class="thumb-label">Men folding blanket</span></button><button class="thumb" data-c="pexels_deformable__pexels_paper_map_wind_7606344" aria-pressed="false" title="Paper map wind"><img src="assets/icon/pexels_deformable__pexels_paper_map_wind_7606344.webp" alt="" loading="lazy"><span class="thumb-label">Paper map wind</span></button><button class="thumb" data-c="pexels_deformable__pexels_woman_dress_9347912" aria-pressed="false" title="Woman dress"><img src="assets/icon/pexels_deformable__pexels_woman_dress_9347912.webp" alt="" loading="lazy"><span class="thumb-label">Woman dress</span></button><button class="thumb" data-c="pixabay_boss__pixabay_1610_legs_boots_baby_swing" aria-pressed="false" title="Legs boots baby swing"><img src="assets/icon/pixabay_boss__pixabay_1610_legs_boots_baby_swing.webp" alt="" loading="lazy"><span class="thumb-label">Legs boots baby swing</span></button><button class="thumb" data-c="pixabay_boss__pixabay_1687_swing_playground_kids" aria-pressed="false" title="Swing playground kids"><img src="assets/icon/pixabay_boss__pixabay_1687_swing_playground_kids.webp" alt="" loading="lazy"><span class="thumb-label">Swing playground kids</span></button><button class="thumb" data-c="pixabay_boss__pixabay_22602_woman_asian_dress_skirt" aria-pressed="false" title="Woman asian dress skirt"><img src="assets/icon/pixabay_boss__pixabay_22602_woman_asian_dress_skirt.webp" alt="" loading="lazy"><span class="thumb-label">Woman asian dress skirt</span></button><button class="thumb" data-c="pixabay_boss__pixabay_66636_horse_playground_toy" aria-pressed="false" title="Horse playground toy"><img src="assets/icon/pixabay_boss__pixabay_66636_horse_playground_toy.webp" alt="" loading="lazy"><span class="thumb-label">Horse playground toy</span></button><button class="thumb" data-c="pt_double_stretch_sloth" aria-pressed="false" title="Double stretch sloth"><img src="assets/icon/pt_double_stretch_sloth.webp" alt="" loading="lazy"><span class="thumb-label">Double stretch sloth</span></button><button class="thumb" data-c="pt_double_stretch_zebra" aria-pressed="false" title="Double stretch zebra"><img src="assets/icon/pt_double_stretch_zebra.webp" alt="" loading="lazy"><span class="thumb-label">Double stretch zebra</span></button><button class="thumb" data-c="pt_single_lift_cloth" aria-pressed="false" title="Single lift cloth"><img src="assets/icon/pt_single_lift_cloth.webp" alt="" loading="lazy"><span class="thumb-label">Single lift cloth</span></button><button class="thumb" data-c="pt_single_lift_rope" aria-pressed="false" title="Single lift rope"><img src="assets/icon/pt_single_lift_rope.webp" alt="" loading="lazy"><span class="thumb-label">Single lift rope</span></button><button class="thumb" data-c="pt_single_push_rope" aria-pressed="false" title="Single push rope"><img src="assets/icon/pt_single_push_rope.webp" alt="" loading="lazy"><span class="thumb-label">Single push rope</span></button><button class="thumb" data-c="pt_single_push_sloth" aria-pressed="false" title="Single push sloth"><img src="assets/icon/pt_single_push_sloth.webp" alt="" loading="lazy"><span class="thumb-label">Single push sloth</span></button><button class="thumb" data-c="pt_weird_package" aria-pressed="false" title="Weird package"><img src="assets/icon/pt_weird_package.webp" alt="" loading="lazy"><span class="thumb-label">Weird package</span></button><button class="thumb" data-c="px_hands_folding_paper_28405807" aria-pressed="false" title="Hands folding paper"><img src="assets/icon/px_hands_folding_paper_28405807.webp" alt="" loading="lazy"><span class="thumb-label">Hands folding paper</span></button><button class="thumb" data-c="px_hands_kneading_dough_6481505" aria-pressed="false" title="Hands kneading dough"><img src="assets/icon/px_hands_kneading_dough_6481505.webp" alt="" loading="lazy"><span class="thumb-label">Hands kneading dough</span></button><button class="thumb" data-c="px_toy_car_moving_4106907" aria-pressed="false" title="Toy car moving"><img src="assets/icon/px_toy_car_moving_4106907.webp" alt="" loading="lazy"><span class="thumb-label">Toy car moving</span></button><button class="thumb" data-c="teaser__bird2" aria-pressed="false" title="Bird2"><img src="assets/icon/teaser__bird2.webp" alt="" loading="lazy"><span class="thumb-label">Bird2</span></button><button class="thumb" data-c="teaser__leaves" aria-pressed="false" title="Leaves"><img src="assets/icon/teaser__leaves.webp" alt="" loading="lazy"><span class="thumb-label">Leaves</span></button><button class="thumb" data-c="videos_2__map2" aria-pressed="false" title="Map2"><img src="assets/icon/videos_2__map2.webp" alt="" loading="lazy"><span class="thumb-label">Map2</span></button></div></div>
+  </div>
+</div></section>
+
+<section id="browse"><div class="wrap">
+  <h2>Results</h2>
+  <p class="lede">The predictions drawn back onto the image, six clips at a time. The view you
+  pick stays as you page through.</p>
+  <div class="panel">
+    <div class="segwrap"><div class="seg" id="view"><button data-v="input" aria-pressed="false">Input</button><button data-v="se3" aria-pressed="true">SE(3) field</button><button data-v="combo_sparse" aria-pressed="false">Tracking + SE(3)</button><button data-v="tracks" aria-pressed="false">3D tracks</button><button data-v="tracks_world" aria-pressed="false">Tracks, camera fixed</button><button data-v="pca" aria-pressed="false">Rigidity embedding</button><button data-v="se3_on_pca" aria-pressed="false">Frames over the embedding</button><button data-v="orbit3d" aria-pressed="false">External view</button></div></div>
+    <div class="rgrid" id="rgrid"></div>
+    <div class="pager"><button id="rprev" aria-label="Previous six">&#8249;</button>
+      <span id="rpage" class="mono"></span><button id="rnext" aria-label="Next six">&#8250;</button></div>
+  </div>
+  <p class="allteasers"><a href="teasers.html">More results &rarr;</a></p>
+</div></section>
+
+
+<section id="embeddings"><div class="wrap">
+  <h2>Rigidity embeddings</h2>
+  <p class="lede">A per-pixel embedding of which parts move together, projected to
+  colour by PCA. It is learned without any segmentation supervision: nothing in
+  training tells the model where one body ends and the next begins. Drag the
+  divider to compare with the input video.</p>
+  <div class="emgrid"><figure class="emcell"><div class="rv"><video class="base" src="assets/input/bridge0.mp4" loop muted playsinline preload="none" aria-label="BridgeData, input"></video><video class="top" src="assets/views/bridge0__pca.mp4" poster="assets/embposter/bridge0.webp" loop muted playsinline preload="none" aria-label="BridgeData, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure><figure class="emcell"><div class="rv"><video class="base" src="assets/input/pexels_boss_themes__pexels_flowing_dress_wind_35920103.mp4" loop muted playsinline preload="none" aria-label="Flowing dress wind, input"></video><video class="top" src="assets/views/pexels_boss_themes__pexels_flowing_dress_wind_35920103__pca.mp4" poster="assets/embposter/pexels_boss_themes__pexels_flowing_dress_wind_35920103.webp" loop muted playsinline preload="none" aria-label="Flowing dress wind, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure><figure class="emcell"><div class="rv"><video class="base" src="assets/input/dycheck_iphone__teddy.mp4" loop muted playsinline preload="none" aria-label="Teddy, input"></video><video class="top" src="assets/views/dycheck_iphone__teddy__pca.mp4" poster="assets/embposter/dycheck_iphone__teddy.webp" loop muted playsinline preload="none" aria-label="Teddy, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure><figure class="emcell"><div class="rv"><video class="base" src="assets/input/articulated__scissors_cutting_paper_6977414.mp4" loop muted playsinline preload="none" aria-label="Scissors cutting paper, input"></video><video class="top" src="assets/views/articulated__scissors_cutting_paper_6977414__pca.mp4" poster="assets/embposter/articulated__scissors_cutting_paper_6977414.webp" loop muted playsinline preload="none" aria-label="Scissors cutting paper, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure><figure class="emcell"><div class="rv"><video class="base" src="assets/input/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206.mp4" loop muted playsinline preload="none" aria-label="Indian sari woman dancing, input"></video><video class="top" src="assets/views/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206__pca.mp4" poster="assets/embposter/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206.webp" loop muted playsinline preload="none" aria-label="Indian sari woman dancing, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure><figure class="emcell"><div class="rv"><video class="base" src="assets/input/pt_double_stretch_zebra.mp4" loop muted playsinline preload="none" aria-label="Double stretch zebra, input"></video><video class="top" src="assets/views/pt_double_stretch_zebra__pca.mp4" poster="assets/embposter/pt_double_stretch_zebra.webp" loop muted playsinline preload="none" aria-label="Double stretch zebra, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure></div>
+</div></section>
+
+
+<section id="compare"><div class="wrap">
+  <h2>Comparison with ProxyPose</h2>
+  <p class="lede">ProxyPose on the left, ours on the right, with each method's wall-clock time on
+  one GPU. ProxyPose predicts one pose per hand-picked query point; ours predicts SE(3) at every
+  pixel in one pass, and is drawn at the same query points only so the two can be compared.</p>
+  <div class="akgrid"><figure class="akrow cmpwrap" style="margin:0"><video src="assets/compare/dycheck_iphone__spin__plain.mp4" loop muted playsinline autoplay preload="metadata"></video><span class="rt l"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>11.8 min <i>3 queries</i></span><span class="rt r"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>5.1 s <i>all pixels</i></span></figure><figure class="akrow cmpwrap" style="margin:0"><video src="assets/compare/videos__tennis__plain.mp4" loop muted playsinline autoplay preload="metadata"></video><span class="rt l"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>11.8 min <i>3 queries</i></span><span class="rt r"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>6.4 s <i>all pixels</i></span></figure></div>
+  
+  
+  
+</div></section>
+
+<section id="results"><div class="wrap">
+  <h2>Benchmarks</h2>
+  <p class="lede">SE(3) at pixel, part and object level, and world-space 3D point tracking,
+  against the strongest baselines. Lower is better for RRE and ADD, higher for the rest.</p>
+  <div class="charts"><div class="legend"><span class="lg"><i class="s0"></i>Ours</span><span class="lg"><i class="s1"></i>V-DPM</span><span class="lg"><i class="s2"></i>4RC</span><span class="lg"><i class="s3"></i>Track4World-Pi3x</span><span class="lg"><i class="s4"></i>Track4World-DA3</span><span class="lg"><i class="s5"></i>ProxyPose</span></div><div class="brow"><h4>HO3D &middot; object / part SE(3)</h4><div class="bcells"><div class="bcell"><svg class="bc" viewBox="0 0 200 150" width="200" height="150" role="img" aria-label="RRE"><text x="100" y="16" text-anchor="middle" class="bct">RRE&darr;</text><path d="M12.3,140 V100.3 Q12.3,96.3 16.3,96.3 H30.3 Q34.3,96.3 34.3,100.3 V140 Z" class="s0"><title>Ours: 17.96</title></path><text x="23.3" y="92.3" text-anchor="middle" class="bcv">17.96</text><path d="M43.0,140 V50.8 Q43.0,46.8 47.0,46.8 H61.0 Q65.0,46.8 65.0,50.8 V140 Z" class="s1"><title>V-DPM: 38.34</title></path><path d="M73.7,140 V56.3 Q73.7,52.3 77.7,52.3 H91.7 Q95.7,52.3 95.7,56.3 V140 Z" class="s2"><title>4RC: 36.08</title></path><path d="M104.3,140 V69.9 Q104.3,65.9 108.3,65.9 H122.3 Q126.3,65.9 126.3,69.9 V140 Z" class="s3"><title>Track4World-Pi3x: 30.46</title></path><path d="M135.0,140 V68.7 Q135.0,64.7 139.0,64.7 H153.0 Q157.0,64.7 157.0,68.7 V140 Z" class="s4"><title>Track4World-DA3: 30.98</title></path><path d="M165.7,140 V68.1 Q165.7,64.1 169.7,64.1 H183.7 Q187.7,64.1 187.7,68.1 V140 Z" class="s5"><title>ProxyPose: 31.22</title></path><line x1="8" x2="192" y1="140" y2="140" class="bcb"/></svg></div><div class="bcell"><svg class="bc" viewBox="0 0 200 150" width="200" height="150" role="img" aria-label="ADD (cm)"><text x="100" y="16" text-anchor="middle" class="bct">ADD (cm)&darr;</text><path d="M12.3,140 V90.1 Q12.3,86.1 16.3,86.1 H30.3 Q34.3,86.1 34.3,90.1 V140 Z" class="s0"><title>Ours: 2.06</title></path><text x="23.3" y="82.1" text-anchor="middle" class="bcv">2.06</text><path d="M43.0,140 V50.8 Q43.0,46.8 47.0,46.8 H61.0 Q65.0,46.8 65.0,50.8 V140 Z" class="s1"><title>V-DPM: 3.56</title></path><path d="M73.7,140 V56.5 Q73.7,52.5 77.7,52.5 H91.7 Q95.7,52.5 95.7,56.5 V140 Z" class="s2"><title>4RC: 3.34</title></path><path d="M104.3,140 V61.0 Q104.3,57.0 108.3,57.0 H122.3 Q126.3,57.0 126.3,61.0 V140 Z" class="s3"><title>Track4World-Pi3x: 3.17</title></path><path d="M135.0,140 V60.2 Q135.0,56.2 139.0,56.2 H153.0 Q157.0,56.2 157.0,60.2 V140 Z" class="s4"><title>Track4World-DA3: 3.2</title></path><text x="176.7" y="136" text-anchor="middle" class="bcna">&ndash;</text><line x1="8" x2="192" y1="140" y2="140" class="bcb"/></svg></div><div class="bcell"><svg class="bc" viewBox="0 0 200 150" width="200" height="150" role="img" aria-label="AUC<tspan class="sub">ADD</tspan>"><text x="100" y="16" text-anchor="middle" class="bct">AUC<tspan class="sub">ADD</tspan>&uarr;</text><path d="M12.3,140 V50.8 Q12.3,46.8 16.3,46.8 H30.3 Q34.3,46.8 34.3,50.8 V140 Z" class="s0"><title>Ours: 0.802</title></path><text x="23.3" y="42.8" text-anchor="middle" class="bcv">0.802</text><path d="M43.0,140 V67.3 Q43.0,63.3 47.0,63.3 H61.0 Q65.0,63.3 65.0,67.3 V140 Z" class="s1"><title>V-DPM: 0.66</title></path><path d="M73.7,140 V64.0 Q73.7,60.0 77.7,60.0 H91.7 Q95.7,60.0 95.7,64.0 V140 Z" class="s2"><title>4RC: 0.688</title></path><path d="M104.3,140 V62.9 Q104.3,58.9 108.3,58.9 H122.3 Q126.3,58.9 126.3,62.9 V140 Z" class="s3"><title>Track4World-Pi3x: 0.698</title></path><path d="M135.0,140 V63.3 Q135.0,59.3 139.0,59.3 H153.0 Q157.0,59.3 157.0,63.3 V140 Z" class="s4"><title>Track4World-DA3: 0.694</title></path><path d="M165.7,140 V87.0 Q165.7,83.0 169.7,83.0 H183.7 Q187.7,83.0 187.7,87.0 V140 Z" class="s5"><title>ProxyPose: 0.49</title></path><line x1="8" x2="192" y1="140" y2="140" class="bcb"/></svg></div><div class="bcell"><svg class="bc" viewBox="0 0 200 150" width="200" height="150" role="img" aria-label="IoU"><text x="100" y="16" text-anchor="middle" class="bct">IoU&uarr;</text><path d="M12.3,140 V50.8 Q12.3,46.8 16.3,46.8 H30.3 Q34.3,46.8 34.3,50.8 V140 Z" class="s0"><title>Ours: 0.709</title></path><text x="23.3" y="42.8" text-anchor="middle" class="bcv">0.709</text><path d="M43.0,140 V88.6 Q43.0,84.6 47.0,84.6 H61.0 Q65.0,84.6 65.0,88.6 V140 Z" class="s1"><title>V-DPM: 0.421</title></path><path d="M73.7,140 V90.2 Q73.7,86.2 77.7,86.2 H91.7 Q95.7,86.2 95.7,90.2 V140 Z" class="s2"><title>4RC: 0.409</title></path><path d="M104.3,140 V89.6 Q104.3,85.6 108.3,85.6 H122.3 Q126.3,85.6 126.3,89.6 V140 Z" class="s3"><title>Track4World-Pi3x: 0.414</title></path><path d="M135.0,140 V93.6 Q135.0,89.6 139.0,89.6 H153.0 Q157.0,89.6 157.0,93.6 V140 Z" class="s4"><title>Track4World-DA3: 0.383</title></path><text x="176.7" y="136" text-anchor="middle" class="bcna">&ndash;</text><line x1="8" x2="192" y1="140" y2="140" class="bcb"/></svg></div></div></div><div class="brow"><h4>iTACO &middot; object / part SE(3)</h4><div class="bcells"><div class="bcell"><svg class="bc" viewBox="0 0 200 150" width="200" height="150" role="img" aria-label="RRE"><text x="100" y="16" text-anchor="middle" class="bct">RRE&darr;</text><path d="M12.3,140 V108.8 Q12.3,104.8 16.3,104.8 H30.3 Q34.3,104.8 34.3,108.8 V140 Z" class="s0"><title>Ours: 10.76</title></path><text x="23.3" y="100.8" text-anchor="middle" class="bcv">10.76</text><path d="M43.0,140 V51.6 Q43.0,47.6 47.0,47.6 H61.0 Q65.0,47.6 65.0,51.6 V140 Z" class="s1"><title>V-DPM: 28.25</title></path><path d="M73.7,140 V82.9 Q73.7,78.9 77.7,78.9 H91.7 Q95.7,78.9 95.7,82.9 V140 Z" class="s2"><title>4RC: 18.7</title></path><path d="M104.3,140 V82.5 Q104.3,78.5 108.3,78.5 H122.3 Q126.3,78.5 126.3,82.5 V140 Z" class="s3"><title>Track4World-Pi3x: 18.8</title></path><path d="M135.0,140 V66.2 Q135.0,62.2 139.0,62.2 H153.0 Q157.0,62.2 157.0,66.2 V140 Z" class="s4"><title>Track4World-DA3: 23.78</title></path><path d="M165.7,140 V50.8 Q165.7,46.8 169.7,46.8 H183.7 Q187.7,46.8 187.7,50.8 V140 Z" class="s5"><title>ProxyPose: 28.51</title></path><line x1="8" x2="192" y1="140" y2="140" class="bcb"/></svg></div><div class="bcell"><svg class="bc" viewBox="0 0 200 150" width="200" height="150" role="img" aria-label="ADD (cm)"><text x="100" y="16" text-anchor="middle" class="bct">ADD (cm)&darr;</text><path d="M12.3,140 V99.7 Q12.3,95.7 16.3,95.7 H30.3 Q34.3,95.7 34.3,99.7 V140 Z" class="s0"><title>Ours: 10.49</title></path><text x="23.3" y="91.7" text-anchor="middle" class="bcv">10.49</text><path d="M43.0,140 V59.9 Q43.0,55.9 47.0,55.9 H61.0 Q65.0,55.9 65.0,59.9 V140 Z" class="s1"><title>V-DPM: 19.92</title></path><path d="M73.7,140 V71.1 Q73.7,67.1 77.7,67.1 H91.7 Q95.7,67.1 95.7,71.1 V140 Z" class="s2"><title>4RC: 17.26</title></path><path d="M104.3,140 V58.9 Q104.3,54.9 108.3,54.9 H122.3 Q126.3,54.9 126.3,58.9 V140 Z" class="s3"><title>Track4World-Pi3x: 20.14</title></path><path d="M135.0,140 V50.8 Q135.0,46.8 139.0,46.8 H153.0 Q157.0,46.8 157.0,50.8 V140 Z" class="s4"><title>Track4World-DA3: 22.07</title></path><text x="176.7" y="136" text-anchor="middle" class="bcna">&ndash;</text><line x1="8" x2="192" y1="140" y2="140" class="bcb"/></svg></div><div class="bcell"><svg class="bc" viewBox="0 0 200 150" width="200" height="150" role="img" aria-label="AUC<tspan class="sub">ADD</tspan>"><text x="100" y="16" text-anchor="middle" class="bct">AUC<tspan class="sub">ADD</tspan>&uarr;</text><path d="M12.3,140 V50.8 Q12.3,46.8 16.3,46.8 H30.3 Q34.3,46.8 34.3,50.8 V140 Z" class="s0"><title>Ours: 0.625</title></path><text x="23.3" y="42.8" text-anchor="middle" class="bcv">0.625</text><path d="M43.0,140 V77.2 Q43.0,73.2 47.0,73.2 H61.0 Q65.0,73.2 65.0,77.2 V140 Z" class="s1"><title>V-DPM: 0.448</title></path><path d="M73.7,140 V65.5 Q73.7,61.5 77.7,61.5 H91.7 Q95.7,61.5 95.7,65.5 V140 Z" class="s2"><title>4RC: 0.526</title></path><path d="M104.3,140 V84.8 Q104.3,80.8 108.3,80.8 H122.3 Q126.3,80.8 126.3,84.8 V140 Z" class="s3"><title>Track4World-Pi3x: 0.397</title></path><path d="M135.0,140 V84.5 Q135.0,80.5 139.0,80.5 H153.0 Q157.0,80.5 157.0,84.5 V140 Z" class="s4"><title>Track4World-DA3: 0.399</title></path><path d="M165.7,140 V99.3 Q165.7,95.3 169.7,95.3 H183.7 Q187.7,95.3 187.7,99.3 V140 Z" class="s5"><title>ProxyPose: 0.3</title></path><line x1="8" x2="192" y1="140" y2="140" class="bcb"/></svg></div><div class="bcell"><svg class="bc" viewBox="0 0 200 150" width="200" height="150" role="img" aria-label="IoU"><text x="100" y="16" text-anchor="middle" class="bct">IoU&uarr;</text><path d="M12.3,140 V50.8 Q12.3,46.8 16.3,46.8 H30.3 Q34.3,46.8 34.3,50.8 V140 Z" class="s0"><title>Ours: 0.784</title></path><text x="23.3" y="42.8" text-anchor="middle" class="bcv">0.784</text><path d="M43.0,140 V113.3 Q43.0,109.3 47.0,109.3 H61.0 Q65.0,109.3 65.0,113.3 V140 Z" class="s1"><title>V-DPM: 0.258</title></path><path d="M73.7,140 V102.5 Q73.7,98.5 77.7,98.5 H91.7 Q95.7,98.5 95.7,102.5 V140 Z" class="s2"><title>4RC: 0.349</title></path><path d="M104.3,140 V102.0 Q104.3,98.0 108.3,98.0 H122.3 Q126.3,98.0 126.3,102.0 V140 Z" class="s3"><title>Track4World-Pi3x: 0.353</title></path><path d="M135.0,140 V106.1 Q135.0,102.1 139.0,102.1 H153.0 Q157.0,102.1 157.0,106.1 V140 Z" class="s4"><title>Track4World-DA3: 0.319</title></path><text x="176.7" y="136" text-anchor="middle" class="bcna">&ndash;</text><line x1="8" x2="192" y1="140" y2="140" class="bcb"/></svg></div></div></div><div class="brow"><h4>YCBInEOAT &middot; object / part SE(3)</h4><div class="bcells"><div class="bcell"><svg class="bc" viewBox="0 0 200 150" width="200" height="150" role="img" aria-label="RRE"><text x="100" y="16" text-anchor="middle" class="bct">RRE&darr;</text><path d="M12.3,140 V108.8 Q12.3,104.8 16.3,104.8 H30.3 Q34.3,104.8 34.3,108.8 V140 Z" class="s0"><title>Ours: 11.93</title></path><text x="23.3" y="100.8" text-anchor="middle" class="bcv">11.93</text><path d="M43.0,140 V50.8 Q43.0,46.8 47.0,46.8 H61.0 Q65.0,46.8 65.0,50.8 V140 Z" class="s1"><title>V-DPM: 31.6</title></path><path d="M73.7,140 V72.5 Q73.7,68.5 77.7,68.5 H91.7 Q95.7,68.5 95.7,72.5 V140 Z" class="s2"><title>4RC: 24.23</title></path><path d="M104.3,140 V85.3 Q104.3,81.3 108.3,81.3 H122.3 Q126.3,81.3 126.3,85.3 V140 Z" class="s3"><title>Track4World-Pi3x: 19.91</title></path><path d="M135.0,140 V58.8 Q135.0,54.8 139.0,54.8 H153.0 Q157.0,54.8 157.0,58.8 V140 Z" class="s4"><title>Track4World-DA3: 28.89</title></path><path d="M165.7,140 V93.8 Q165.7,89.8 169.7,89.8 H183.7 Q187.7,89.8 187.7,93.8 V140 Z" class="s5"><title>ProxyPose: 17.01</title></path><line x1="8" x2="192" y1="140" y2="140" class="bcb"/></svg></div><div class="bcell"><svg class="bc" viewBox="0 0 200 150" width="200" height="150" role="img" aria-label="ADD (cm)"><text x="100" y="16" text-anchor="middle" class="bct">ADD (cm)&darr;</text><path d="M12.3,140 V98.4 Q12.3,94.4 16.3,94.4 H30.3 Q34.3,94.4 34.3,98.4 V140 Z" class="s0"><title>Ours: 4</title></path><text x="23.3" y="90.4" text-anchor="middle" class="bcv">4</text><path d="M43.0,140 V50.8 Q43.0,46.8 47.0,46.8 H61.0 Q65.0,46.8 65.0,50.8 V140 Z" class="s1"><title>V-DPM: 8.18</title></path><path d="M73.7,140 V92.5 Q73.7,88.5 77.7,88.5 H91.7 Q95.7,88.5 95.7,92.5 V140 Z" class="s2"><title>4RC: 4.52</title></path><path d="M104.3,140 V58.2 Q104.3,54.2 108.3,54.2 H122.3 Q126.3,54.2 126.3,58.2 V140 Z" class="s3"><title>Track4World-Pi3x: 7.53</title></path><path d="M135.0,140 V74.4 Q135.0,70.4 139.0,70.4 H153.0 Q157.0,70.4 157.0,74.4 V140 Z" class="s4"><title>Track4World-DA3: 6.11</title></path><text x="176.7" y="136" text-anchor="middle" class="bcna">&ndash;</text><line x1="8" x2="192" y1="140" y2="140" class="bcb"/></svg></div><div class="bcell"><svg class="bc" viewBox="0 0 200 150" width="200" height="150" role="img" aria-label="AUC<tspan class="sub">ADD</tspan>"><text x="100" y="16" text-anchor="middle" class="bct">AUC<tspan class="sub">ADD</tspan>&uarr;</text><path d="M12.3,140 V50.8 Q12.3,46.8 16.3,46.8 H30.3 Q34.3,46.8 34.3,50.8 V140 Z" class="s0"><title>Ours: 0.638</title></path><text x="23.3" y="42.8" text-anchor="middle" class="bcv">0.638</text><path d="M43.0,140 V70.8 Q43.0,66.8 47.0,66.8 H61.0 Q65.0,66.8 65.0,70.8 V140 Z" class="s1"><title>V-DPM: 0.501</title></path><path d="M73.7,140 V52.7 Q73.7,48.7 77.7,48.7 H91.7 Q95.7,48.7 95.7,52.7 V140 Z" class="s2"><title>4RC: 0.625</title></path><path d="M104.3,140 V63.8 Q104.3,59.8 108.3,59.8 H122.3 Q126.3,59.8 126.3,63.8 V140 Z" class="s3"><title>Track4World-Pi3x: 0.549</title></path><path d="M135.0,140 V64.8 Q135.0,60.8 139.0,60.8 H153.0 Q157.0,60.8 157.0,64.8 V140 Z" class="s4"><title>Track4World-DA3: 0.542</title></path><path d="M165.7,140 V68.8 Q165.7,64.8 169.7,64.8 H183.7 Q187.7,64.8 187.7,68.8 V140 Z" class="s5"><title>ProxyPose: 0.515</title></path><line x1="8" x2="192" y1="140" y2="140" class="bcb"/></svg></div><div class="bcell"><svg class="bc" viewBox="0 0 200 150" width="200" height="150" role="img" aria-label="IoU"><text x="100" y="16" text-anchor="middle" class="bct">IoU&uarr;</text><path d="M12.3,140 V50.8 Q12.3,46.8 16.3,46.8 H30.3 Q34.3,46.8 34.3,50.8 V140 Z" class="s0"><title>Ours: 0.498</title></path><text x="23.3" y="42.8" text-anchor="middle" class="bcv">0.498</text><path d="M43.0,140 V100.2 Q43.0,96.2 47.0,96.2 H61.0 Q65.0,96.2 65.0,100.2 V140 Z" class="s1"><title>V-DPM: 0.234</title></path><path d="M73.7,140 V83.7 Q73.7,79.7 77.7,79.7 H91.7 Q95.7,79.7 95.7,83.7 V140 Z" class="s2"><title>4RC: 0.322</title></path><path d="M104.3,140 V76.6 Q104.3,72.6 108.3,72.6 H122.3 Q126.3,72.6 126.3,76.6 V140 Z" class="s3"><title>Track4World-Pi3x: 0.36</title></path><path d="M135.0,140 V92.0 Q135.0,88.0 139.0,88.0 H153.0 Q157.0,88.0 157.0,92.0 V140 Z" class="s4"><title>Track4World-DA3: 0.278</title></path><text x="176.7" y="136" text-anchor="middle" class="bcna">&ndash;</text><line x1="8" x2="192" y1="140" y2="140" class="bcb"/></svg></div></div></div></div>
+  <h3>SE(3) estimation on HO3D and iTACO</h3>
+  <div class="tscroll"><table><thead><tr><th></th><th colspan="4" class="grp"><span>Per-pixel &mdash; HO3D</span></th><th colspan="4" class="grp"><span>Per-pixel &mdash; iTACO</span></th><th colspan="4" class="grp"><span>Object / part &mdash; HO3D</span></th><th colspan="4" class="grp"><span>Object / part &mdash; iTACO</span></th></tr><tr><th></th><th>RRE&darr;</th><th>ADD&darr;</th><th>AUC<sub>r</sub>&uarr;</th><th>AUC<sub>ADD</sub>&uarr;</th><th>RRE&darr;</th><th>ADD&darr;</th><th>AUC<sub>r</sub>&uarr;</th><th>AUC<sub>ADD</sub>&uarr;</th><th>RRE&darr;</th><th>ADD&darr;</th><th>AUC<sub>ADD</sub>&uarr;</th><th>IoU&uarr;</th><th>RRE&darr;</th><th>ADD&darr;</th><th>AUC<sub>ADD</sub>&uarr;</th><th>IoU&uarr;</th></tr></thead><tbody><tr class=""><td>SpatialTrackerV2</td><td class="mono ">36.45</td><td class="mono ">3.73</td><td class="mono u">0.376</td><td class="mono ">0.633</td><td class="mono ">36.71</td><td class="mono ">28.45</td><td class="mono ">0.408</td><td class="mono ">0.309</td><td class="mono ">32.56</td><td class="mono ">3.46</td><td class="mono ">0.670</td><td class="mono ">0.385</td><td class="mono ">27.25</td><td class="mono ">23.01</td><td class="mono ">0.421</td><td class="mono ">0.239</td></tr><tr class=""><td>POMATO</td><td class="mono ">60.53</td><td class="mono ">6.59</td><td class="mono ">0.216</td><td class="mono ">0.405</td><td class="mono ">46.42</td><td class="mono ">46.66</td><td class="mono ">0.319</td><td class="mono ">0.121</td><td class="mono ">59.99</td><td class="mono ">6.18</td><td class="mono ">0.446</td><td class="mono ">0.197</td><td class="mono ">41.53</td><td class="mono ">44.48</td><td class="mono ">0.152</td><td class="mono ">0.190</td></tr><tr class=""><td>ZeroMSF</td><td class="mono ">61.53</td><td class="mono ">6.70</td><td class="mono ">0.224</td><td class="mono ">0.409</td><td class="mono ">46.52</td><td class="mono ">43.68</td><td class="mono ">0.298</td><td class="mono ">0.128</td><td class="mono ">62.29</td><td class="mono ">6.43</td><td class="mono ">0.442</td><td class="mono ">0.230</td><td class="mono ">43.47</td><td class="mono ">41.83</td><td class="mono ">0.158</td><td class="mono ">0.187</td></tr><tr class=""><td>Any4D</td><td class="mono ">57.02</td><td class="mono ">5.24</td><td class="mono ">0.263</td><td class="mono ">0.504</td><td class="mono ">43.98</td><td class="mono ">31.50</td><td class="mono ">0.364</td><td class="mono ">0.292</td><td class="mono ">55.44</td><td class="mono ">5.16</td><td class="mono ">0.523</td><td class="mono ">0.298</td><td class="mono ">37.23</td><td class="mono ">28.56</td><td class="mono ">0.399</td><td class="mono ">0.185</td></tr><tr class=""><td>V-DPM</td><td class="mono ">40.37</td><td class="mono ">3.65</td><td class="mono ">0.342</td><td class="mono ">0.641</td><td class="mono ">32.70</td><td class="mono ">22.60</td><td class="mono ">0.460</td><td class="mono ">0.378</td><td class="mono ">38.34</td><td class="mono ">3.56</td><td class="mono ">0.660</td><td class="mono u">0.421</td><td class="mono ">28.25</td><td class="mono ">19.92</td><td class="mono ">0.448</td><td class="mono ">0.258</td></tr><tr class=""><td>TraceAnything</td><td class="mono ">61.56</td><td class="mono ">5.69</td><td class="mono ">0.245</td><td class="mono ">0.467</td><td class="mono ">44.73</td><td class="mono ">35.47</td><td class="mono ">0.347</td><td class="mono ">0.249</td><td class="mono ">61.20</td><td class="mono ">5.65</td><td class="mono ">0.488</td><td class="mono ">0.221</td><td class="mono ">38.45</td><td class="mono ">32.47</td><td class="mono ">0.341</td><td class="mono ">0.142</td></tr><tr class=""><td>4RC</td><td class="mono ">38.62</td><td class="mono ">3.46</td><td class="mono ">0.367</td><td class="mono ">0.667</td><td class="mono ">28.60</td><td class="mono u">20.91</td><td class="mono u">0.471</td><td class="mono u">0.410</td><td class="mono ">36.08</td><td class="mono ">3.34</td><td class="mono ">0.688</td><td class="mono ">0.409</td><td class="mono u">18.70</td><td class="mono u">17.26</td><td class="mono u">0.526</td><td class="mono ">0.349</td></tr><tr class=""><td>Track4World-Pi3x</td><td class="mono u">33.21</td><td class="mono ">3.37</td><td class="mono ">0.371</td><td class="mono ">0.669</td><td class="mono u">28.07</td><td class="mono ">24.82</td><td class="mono ">0.447</td><td class="mono ">0.312</td><td class="mono u">30.46</td><td class="mono u">3.17</td><td class="mono u">0.698</td><td class="mono ">0.414</td><td class="mono ">18.80</td><td class="mono ">20.14</td><td class="mono ">0.397</td><td class="mono u">0.353</td></tr><tr class=""><td>Track4World-DA3</td><td class="mono ">34.61</td><td class="mono u">3.34</td><td class="mono ">0.361</td><td class="mono u">0.671</td><td class="mono ">32.09</td><td class="mono ">25.69</td><td class="mono ">0.408</td><td class="mono ">0.321</td><td class="mono ">30.98</td><td class="mono ">3.20</td><td class="mono ">0.694</td><td class="mono ">0.383</td><td class="mono ">23.78</td><td class="mono ">22.07</td><td class="mono ">0.399</td><td class="mono ">0.319</td></tr><tr class=""><td>ProxyPose&dagger;</td><td class="mono ">--</td><td class="mono ">--</td><td class="mono ">--</td><td class="mono ">--</td><td class="mono ">--</td><td class="mono ">--</td><td class="mono ">--</td><td class="mono ">--</td><td class="mono ">31.22</td><td class="mono ">--</td><td class="mono ">0.490</td><td class="mono ">--</td><td class="mono ">28.51</td><td class="mono ">--</td><td class="mono ">0.300</td><td class="mono ">--</td></tr><tr class="ours"><td>Ours</td><td class="mono b">18.28</td><td class="mono b">2.16</td><td class="mono b">0.569</td><td class="mono b">0.785</td><td class="mono b">12.30</td><td class="mono b">11.37</td><td class="mono b">0.741</td><td class="mono b">0.594</td><td class="mono b">17.96</td><td class="mono b">2.06</td><td class="mono b">0.802</td><td class="mono b">0.709</td><td class="mono b">10.76</td><td class="mono b">10.49</td><td class="mono b">0.625</td><td class="mono b">0.784</td></tr></tbody></table></div><p class="caption">Per-pixel SE(3) evaluates a rigid transform at every pixel; object/part-level SE(3) clusters pixels into rigid bodies and recovers one transform per cluster, with IoU against ground-truth rigid masks. ADD in centimeters; AUC<sub>r</sub> at 30&deg;, AUC<sub>ADD</sub> at 10 cm on HO3D and 20 cm on iTACO. Baselines cluster predicted point tracks with k-NN; ours clusters its learned rigidity embeddings. Bold best, underline second.</p><p class="caption" style="margin-top:10px;font-size:12.5px">&dagger;ProxyPose predicts a pose per query rather than a dense per-pixel field; it is evaluated in its single-query variant under its own protocol with ground-truth intrinsics, so it is reported at the object/part level only and has no predicted mask for IoU. Its ADD is omitted: the mean is dominated by a few clips where its tracker diverges.</p>
+  <h3>SE(3) estimation on YCBInEOAT</h3>
+  <div class="tscroll"><table><thead><tr><th></th><th colspan="4" class="grp"><span>Per-pixel</span></th><th colspan="4" class="grp"><span>Object / part</span></th></tr><tr><th></th><th>RRE&darr;</th><th>ADD&darr;</th><th>AUC<sub>r</sub>&uarr;</th><th>AUC<sub>ADD</sub>&uarr;</th><th>RRE&darr;</th><th>ADD&darr;</th><th>AUC<sub>ADD</sub>&uarr;</th><th>IoU&uarr;</th></tr></thead><tbody><tr class=""><td>SpatialTrackerV2</td><td class="mono ">21.93</td><td class="mono ">4.93</td><td class="mono ">0.461</td><td class="mono ">0.576</td><td class="mono ">22.93</td><td class="mono ">6.55</td><td class="mono ">0.508</td><td class="mono ">0.251</td></tr><tr class=""><td>POMATO</td><td class="mono ">46.47</td><td class="mono ">10.78</td><td class="mono ">0.223</td><td class="mono ">0.336</td><td class="mono ">50.11</td><td class="mono ">10.89</td><td class="mono ">0.309</td><td class="mono ">0.054</td></tr><tr class=""><td>ZeroMSF</td><td class="mono ">44.79</td><td class="mono ">11.57</td><td class="mono ">0.243</td><td class="mono ">0.353</td><td class="mono ">46.71</td><td class="mono ">10.74</td><td class="mono ">0.387</td><td class="mono ">0.073</td></tr><tr class=""><td>Any4D</td><td class="mono ">42.30</td><td class="mono ">10.28</td><td class="mono ">0.251</td><td class="mono ">0.432</td><td class="mono ">44.67</td><td class="mono ">10.45</td><td class="mono ">0.455</td><td class="mono ">0.267</td></tr><tr class=""><td>V-DPM</td><td class="mono ">30.42</td><td class="mono ">7.58</td><td class="mono ">0.329</td><td class="mono ">0.504</td><td class="mono ">31.60</td><td class="mono ">8.18</td><td class="mono ">0.501</td><td class="mono ">0.234</td></tr><tr class=""><td>TraceAnything</td><td class="mono ">44.79</td><td class="mono ">9.61</td><td class="mono ">0.249</td><td class="mono ">0.415</td><td class="mono ">48.47</td><td class="mono ">10.18</td><td class="mono ">0.392</td><td class="mono ">0.066</td></tr><tr class=""><td>4RC</td><td class="mono ">21.18</td><td class="mono u">4.85</td><td class="mono u">0.492</td><td class="mono u">0.614</td><td class="mono ">24.23</td><td class="mono u">4.52</td><td class="mono u">0.625</td><td class="mono ">0.322</td></tr><tr class=""><td>Track4World-Pi3x</td><td class="mono u">19.92</td><td class="mono ">7.68</td><td class="mono ">0.441</td><td class="mono ">0.562</td><td class="mono ">19.91</td><td class="mono ">7.53</td><td class="mono ">0.549</td><td class="mono u">0.360</td></tr><tr class=""><td>Track4World-DA3</td><td class="mono ">22.46</td><td class="mono ">5.59</td><td class="mono ">0.399</td><td class="mono ">0.560</td><td class="mono ">28.89</td><td class="mono ">6.11</td><td class="mono ">0.542</td><td class="mono ">0.278</td></tr><tr class=""><td>ProxyPose&dagger;</td><td class="mono ">--</td><td class="mono ">--</td><td class="mono ">--</td><td class="mono ">--</td><td class="mono u">17.01</td><td class="mono ">--</td><td class="mono ">0.515</td><td class="mono ">--</td></tr><tr class="ours"><td>Ours</td><td class="mono b">14.89</td><td class="mono b">3.98</td><td class="mono b">0.588</td><td class="mono b">0.628</td><td class="mono b">11.93</td><td class="mono b">4.00</td><td class="mono b">0.638</td><td class="mono b">0.498</td></tr></tbody></table></div><p class="caption">Nine clips of robot manipulation with rigid objects, evaluated with the protocol above. ADD in centimeters; AUC<sub>r</sub> at 30&deg;, AUC<sub>ADD</sub> at 10 cm. Bold best, underline second.</p><p class="caption" style="margin-top:10px;font-size:12.5px">&dagger;ProxyPose predicts a pose per query rather than a dense per-pixel field; it is evaluated in its single-query variant under its own protocol with ground-truth intrinsics, so it is reported at the object/part level only and has no predicted mask for IoU. Its ADD is omitted: the mean is dominated by a few clips where its tracker diverges.</p>
+  <h3>World-coordinate 3D point tracking</h3>
+  <div class="tscroll"><table><thead><tr><th></th><th colspan="2" class="grp"><span>PointOdyssey</span></th><th colspan="2" class="grp"><span>ADT</span></th><th colspan="2" class="grp"><span>PStudio</span></th><th colspan="2" class="grp"><span>Average</span></th></tr><tr><th></th><th>L-16</th><th>L-50</th><th>L-16</th><th>L-50</th><th>L-16</th><th>L-50</th><th>L-16</th><th>L-50</th></tr></thead><tbody><tr class=""><td>SpatialTrackerV2</td><td class="mono ">0.1925</td><td class="mono ">0.1763</td><td class="mono ">0.2456</td><td class="mono ">0.2163</td><td class="mono ">0.3790</td><td class="mono ">0.3689</td><td class="mono ">0.2724</td><td class="mono ">0.2538</td></tr><tr class=""><td>POMATO</td><td class="mono ">0.4425</td><td class="mono ">0.3905</td><td class="mono ">0.3611</td><td class="mono ">0.3548</td><td class="mono ">0.5166</td><td class="mono ">0.4713</td><td class="mono ">0.4401</td><td class="mono ">0.4055</td></tr><tr class=""><td>ZeroMSF</td><td class="mono ">0.4053</td><td class="mono ">0.3505</td><td class="mono ">0.4530</td><td class="mono ">0.3563</td><td class="mono ">0.4828</td><td class="mono ">0.4386</td><td class="mono ">0.4471</td><td class="mono ">0.3818</td></tr><tr class=""><td>Any4D</td><td class="mono ">0.4769</td><td class="mono ">0.4174</td><td class="mono ">0.4460</td><td class="mono ">0.3717</td><td class="mono ">0.5707</td><td class="mono ">0.5066</td><td class="mono ">0.4979</td><td class="mono ">0.4319</td></tr><tr class=""><td>V-DPM</td><td class="mono ">0.4848</td><td class="mono ">0.4233</td><td class="mono ">0.4783</td><td class="mono ">0.3759</td><td class="mono u">0.6084</td><td class="mono u">0.5795</td><td class="mono ">0.5238</td><td class="mono ">0.4596</td></tr><tr class=""><td>Track4World</td><td class="mono u">0.5345</td><td class="mono u">0.5162</td><td class="mono u">0.6250</td><td class="mono u">0.5622</td><td class="mono ">0.5946</td><td class="mono ">0.5422</td><td class="mono u">0.5847</td><td class="mono u">0.5402</td></tr><tr class="ours"><td>Ours</td><td class="mono b">0.5642</td><td class="mono b">0.5633</td><td class="mono b">0.6403</td><td class="mono b">0.6382</td><td class="mono b">0.6666</td><td class="mono b">0.6438</td><td class="mono b">0.6237</td><td class="mono b">0.6151</td></tr></tbody></table></div><p class="caption">World-coordinate 3D point tracking on PointOdyssey, ADT and PStudio, following the Track4World protocol: accuracy at horizons L-16 and L-50; Avg. is the unweighted mean across the three datasets. Bold best, underline second.</p>
+</div></section>
+
+<section id="method"><div class="wrap">
+  <h2>Method</h2>
+  <div class="figbox"><img src="assets/figures/method.png?v=1790715664" alt=""></div><p class="caption"><b>Method overview.</b> MoSE3 extends the frozen &pi;&sup3; backbone with a trainable tracking branch that predicts dense 3D point tracks and rigidity embeddings. Per-pixel SE(3) motion is then recovered in closed form via a weighted Horn fit on the world-frame tracks, with weights given by rigidity-embedding similarity. Because the Horn fit is differentiable, the dense SE(3) prediction is supervised end-to-end together with the tracks and rigidity embeddings.</p>
+</div></section>
+
+
+<section id="artkubric"><div class="wrap">
+  <h2>Art-Kubric</h2>
+  <p class="lede">Dense SE(3) supervision for articulated, interacting scenes does not exist in any
+  public corpus, so we built it. Art-Kubric is a synthetic dataset and generation pipeline: articulated
+  assets from 46 PartNet-Mobility, 226 Articraft and 7 Infinigen-Articulated categories; dense long-range
+  2D tracks and metric world-space 3D tracks; link-level SE(3) pose for every kinematic link at every
+  frame; a per-pixel partition of the image by shared rigid motion; rigid and articulated bodies
+  interacting under physics in every scene; and a rendering pipeline that randomizes HDRI lighting,
+  camera intrinsics and object composition, so new clips can be re-rendered with the same supervision.
+  The release has 5,000 scenes of 13&ndash;30 objects observed by a moving camera, exported with depth,
+  normals, three-granularity segmentation and camera parameters: 163M tracks, each with its rigid-group
+  label, per-frame occlusion flag and its link's SE(3). Panels below: rendered frame, actor
+  segmentation, rigid-part segmentation.</p>
+  <div class="panel">
+    <div class="player ak3"><video id="akplayer" loop muted playsinline autoplay></video></div>
+    <div class="thumb-grid"><button class="thumb ak" data-s="0001" aria-pressed="true" title="scene 0001"><img src="assets/artkubric/0001.webp" alt="scene 0001" loading="lazy"><span class="thumb-label">0001</span></button><button class="thumb ak" data-s="0002" aria-pressed="false" title="scene 0002"><img src="assets/artkubric/0002.webp" alt="scene 0002" loading="lazy"><span class="thumb-label">0002</span></button><button class="thumb ak" data-s="0003" aria-pressed="false" title="scene 0003"><img src="assets/artkubric/0003.webp" alt="scene 0003" loading="lazy"><span class="thumb-label">0003</span></button><button class="thumb ak" data-s="0004" aria-pressed="false" title="scene 0004"><img src="assets/artkubric/0004.webp" alt="scene 0004" loading="lazy"><span class="thumb-label">0004</span></button><button class="thumb ak" data-s="0005" aria-pressed="false" title="scene 0005"><img src="assets/artkubric/0005.webp" alt="scene 0005" loading="lazy"><span class="thumb-label">0005</span></button><button class="thumb ak" data-s="0006" aria-pressed="false" title="scene 0006"><img src="assets/artkubric/0006.webp" alt="scene 0006" loading="lazy"><span class="thumb-label">0006</span></button><button class="thumb ak" data-s="0007" aria-pressed="false" title="scene 0007"><img src="assets/artkubric/0007.webp" alt="scene 0007" loading="lazy"><span class="thumb-label">0007</span></button><button class="thumb ak" data-s="0008" aria-pressed="false" title="scene 0008"><img src="assets/artkubric/0008.webp" alt="scene 0008" loading="lazy"><span class="thumb-label">0008</span></button><button class="thumb ak" data-s="0009" aria-pressed="false" title="scene 0009"><img src="assets/artkubric/0009.webp" alt="scene 0009" loading="lazy"><span class="thumb-label">0009</span></button></div>
+  </div>
+  <p class="caption">9 of 5,000 scenes from
+  <span class="mono">subric_v43</span>.</p>
+  <div style="height:26px"></div>
+  <div class="figbox"><img src="assets/figures/dataset.png?v=1790715666" alt=""></div><p class="caption"><b>Art-Kubric overview.</b> Two example scenes, one per row. Columns 1&ndash;3: three RGB frames from the clip. Columns 4&ndash;7, rendered at the third frame: sampled long-range 3D tracks coloured by their parent rigid body, per-pixel SE(3) motion as rotated coordinate frames at sparse anchors, rigid-part segmentation, and depth. Articulated objects from PartNet-Mobility, Articraft and Infinigen-Articulated interact with rigid Google Scanned Objects under physics simulation while a moving camera observes the scene under varying HDRI lighting.</p>
+</div></section>
+
+
+<section id="failures"><div class="wrap">
+  <h2>Failure modes</h2>
+  <p class="lede">Cases where the prediction is wrong, kept here rather than left out.</p>
+  <div class="emgrid"><figure class="emcell"><video class="fit" src="assets/views/collision__billiard_break_6253870__combo_sparse.mp4" poster="assets/gallery/collision__billiard_break_6253870.webp" loop muted playsinline autoplay preload="metadata"></video></figure><figure class="emcell"><video class="fit" src="assets/views/dycheck_iphone__paper-windmill__combo_sparse.mp4" poster="assets/gallery/dycheck_iphone__paper-windmill.webp" loop muted playsinline autoplay preload="metadata"></video></figure><figure class="emcell"><video class="fit" src="assets/gallery/occlusion__juggling_balls_854421.mp4" poster="assets/gallery/occlusion__juggling_balls_854421.webp" loop muted playsinline autoplay preload="metadata"></video></figure><figure class="emcell"><video class="fit" src="assets/gallery/pexels_boss_themes__pexels_newton_cradle_8011404.mp4" poster="assets/gallery/pexels_boss_themes__pexels_newton_cradle_8011404.webp" loop muted playsinline autoplay preload="metadata"></video></figure><figure class="emcell"><video class="fit" src="assets/gallery/pixabay_boss__pixabay_63040_newton_cradle_pendulum.mp4" poster="assets/gallery/pixabay_boss__pixabay_63040_newton_cradle_pendulum.webp" loop muted playsinline autoplay preload="metadata"></video></figure><figure class="emcell"><video class="fit" src="assets/gallery/pixabay_boss__pixabay_8131_carousel_dresden.mp4" poster="assets/gallery/pixabay_boss__pixabay_8131_carousel_dresden.webp" loop muted playsinline autoplay preload="metadata"></video></figure></div>
+</div></section>
+
+<section id="bibtex"><div class="wrap">
+  <h2>BibTeX</h2>
+  <div class="measure"><pre>@inproceedings{cheng2026mose3,
+  title     = {MoSE3: Learning World-Space SE(3) at Every Pixel},
+  author    = {Cheng, Joanna Jiahuan and Li, Zhiyi and Xia, Tian and Cai, Ruojin and Du, Yilun and Wang, Qianqian},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2026}
+}</pre></div>
+</div></section>
+
+<footer><div class="wrap">
+  <p>MoSE3 &middot; Harvard University &middot; Kempner Institute &middot; Johns Hopkins University &middot; MIT</p>
+  <p class="fine">Rendered from checkpoint full_train_v12_pixelz_gtfocal_landing_64gpu / checkpoint_199
+  &nbsp;&middot;&nbsp; built 2026-10-01 13:17 &nbsp;&middot;&nbsp; static page, GitHub Pages ready</p>
+</div></footer>
+
+<script>
+const CLIPS = {"dycheck_iphone__spin": {"clip": "dycheck_iphone__spin", "label": "Spin", "teaser_video": "assets/teaser/dycheck_iphone__spin.mp4", "compare": {"plain": "assets/compare/dycheck_iphone__spin__plain.mp4"}, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [364, 476], "tripods": 14, "area": 0.1733, "rotation_deg": 177.0, "travel_px": 177.8, "video": "assets/gallery/dycheck_iphone__spin.mp4", "poster": "assets/gallery/dycheck_iphone__spin.webp", "icon": "assets/icon/dycheck_iphone__spin.webp", "views": {"se3": "assets/gallery/dycheck_iphone__spin.mp4", "input": "assets/input/dycheck_iphone__spin.mp4", "combo_sparse": "assets/views/dycheck_iphone__spin__combo_sparse.mp4", "grid": "assets/views/dycheck_iphone__spin__grid.mp4", "orbit3d": "assets/views/dycheck_iphone__spin__orbit3d.mp4", "pca": "assets/views/dycheck_iphone__spin__pca.mp4", "se3_on_pca": "assets/views/dycheck_iphone__spin__se3_on_pca.mp4", "tracks": "assets/views/dycheck_iphone__spin__tracks.mp4", "tracks_world": "assets/views/dycheck_iphone__spin__tracks_world.mp4"}, "default_view": "se3"}, "pixabay_boss__pixabay_22602_woman_asian_dress_skirt": {"clip": "pixabay_boss__pixabay_22602_woman_asian_dress_skirt", "label": "Woman asian dress skirt", "teaser_video": "assets/teaser/pixabay_boss__pixabay_22602_woman_asian_dress_skirt.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [518, 392], "tripods": 12, "area": 0.5426, "rotation_deg": 171.3, "travel_px": 195.9, "video": "assets/gallery/pixabay_boss__pixabay_22602_woman_asian_dress_skirt.mp4", "poster": "assets/gallery/pixabay_boss__pixabay_22602_woman_asian_dress_skirt.webp", "icon": "assets/icon/pixabay_boss__pixabay_22602_woman_asian_dress_skirt.webp", "views": {"se3": "assets/gallery/pixabay_boss__pixabay_22602_woman_asian_dress_skirt.mp4", "input": "assets/input/pixabay_boss__pixabay_22602_woman_asian_dress_skirt.mp4", "combo_sparse": "assets/views/pixabay_boss__pixabay_22602_woman_asian_dress_skirt__combo_sparse.mp4", "grid": "assets/views/pixabay_boss__pixabay_22602_woman_asian_dress_skirt__grid.mp4", "orbit3d": "assets/views/pixabay_boss__pixabay_22602_woman_asian_dress_skirt__orbit3d.mp4", "pca": "assets/views/pixabay_boss__pixabay_22602_woman_asian_dress_skirt__pca.mp4", "se3_on_pca": "assets/views/pixabay_boss__pixabay_22602_woman_asian_dress_skirt__se3_on_pca.mp4", "tracks": "assets/views/pixabay_boss__pixabay_22602_woman_asian_dress_skirt__tracks.mp4", "tracks_world": "assets/views/pixabay_boss__pixabay_22602_woman_asian_dress_skirt__tracks_world.mp4"}, "default_view": "se3"}, "teaser__bird2": {"clip": "teaser__bird2", "label": "Bird2", "teaser_video": "assets/teaser/teaser__bird2.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 11, "area": 0.0688, "rotation_deg": 141.1, "travel_px": 49.5, "video": "assets/gallery/teaser__bird2.mp4", "poster": "assets/gallery/teaser__bird2.webp", "icon": "assets/icon/teaser__bird2.webp", "views": {"se3": "assets/gallery/teaser__bird2.mp4", "input": "assets/input/teaser__bird2.mp4", "combo_sparse": "assets/views/teaser__bird2__combo_sparse.mp4", "grid": "assets/views/teaser__bird2__grid.mp4", "orbit3d": "assets/views/teaser__bird2__orbit3d.mp4", "pca": "assets/views/teaser__bird2__pca.mp4", "se3_on_pca": "assets/views/teaser__bird2__se3_on_pca.mp4", "tracks": "assets/views/teaser__bird2__tracks.mp4", "tracks_world": "assets/views/teaser__bird2__tracks_world.mp4"}, "default_view": "se3"}, "pixabay_boss__pixabay_12741_kettlebell_russian_swing": {"clip": "pixabay_boss__pixabay_12741_kettlebell_russian_swing", "label": "Kettlebell russian swing", "teaser_video": "assets/teaser/pixabay_boss__pixabay_12741_kettlebell_russian_swing.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [518, 518], "tripods": 5, "area": 0.083, "rotation_deg": 71.9, "travel_px": 45.5, "video": "assets/gallery/pixabay_boss__pixabay_12741_kettlebell_russian_swing.mp4", "poster": "assets/gallery/pixabay_boss__pixabay_12741_kettlebell_russian_swing.webp", "icon": "assets/icon/pixabay_boss__pixabay_12741_kettlebell_russian_swing.webp", "views": {"se3": "assets/gallery/pixabay_boss__pixabay_12741_kettlebell_russian_swing.mp4", "input": "assets/input/pixabay_boss__pixabay_12741_kettlebell_russian_swing.mp4", "combo_sparse": "assets/views/pixabay_boss__pixabay_12741_kettlebell_russian_swing__combo_sparse.mp4", "grid": "assets/views/pixabay_boss__pixabay_12741_kettlebell_russian_swing__grid.mp4", "orbit3d": "assets/views/pixabay_boss__pixabay_12741_kettlebell_russian_swing__orbit3d.mp4", "pca": "assets/views/pixabay_boss__pixabay_12741_kettlebell_russian_swing__pca.mp4", "se3_on_pca": "assets/views/pixabay_boss__pixabay_12741_kettlebell_russian_swing__se3_on_pca.mp4", "tracks": "assets/views/pixabay_boss__pixabay_12741_kettlebell_russian_swing__tracks.mp4", "tracks_world": "assets/views/pixabay_boss__pixabay_12741_kettlebell_russian_swing__tracks_world.mp4"}, "default_view": "se3"}, "videos_2__map2": {"clip": "videos_2__map2", "label": "Map2", "teaser_video": "assets/teaser/videos_2__map2.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [294, 518], "tripods": 10, "area": 0.1787, "rotation_deg": 69.6, "travel_px": 88.2, "video": "assets/gallery/videos_2__map2.mp4", "poster": "assets/gallery/videos_2__map2.webp", "icon": "assets/icon/videos_2__map2.webp", "views": {"se3": "assets/gallery/videos_2__map2.mp4", "input": "assets/input/videos_2__map2.mp4", "combo_sparse": "assets/views/videos_2__map2__combo_sparse.mp4", "grid": "assets/views/videos_2__map2__grid.mp4", "orbit3d": "assets/views/videos_2__map2__orbit3d.mp4", "pca": "assets/views/videos_2__map2__pca.mp4", "se3_on_pca": "assets/views/videos_2__map2__se3_on_pca.mp4", "tracks": "assets/views/videos_2__map2__tracks.mp4", "tracks_world": "assets/views/videos_2__map2__tracks_world.mp4"}, "default_view": "se3"}, "pexels_boss_themes__pexels_flowing_dress_wind_35920103": {"clip": "pexels_boss_themes__pexels_flowing_dress_wind_35920103", "label": "Flowing dress wind", "teaser_video": "assets/teaser/pexels_boss_themes__pexels_flowing_dress_wind_35920103.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [518, 518], "tripods": 33, "area": 0.1132, "rotation_deg": 65.0, "travel_px": 45.7, "video": "assets/gallery/pexels_boss_themes__pexels_flowing_dress_wind_35920103.mp4", "poster": "assets/gallery/pexels_boss_themes__pexels_flowing_dress_wind_35920103.webp", "icon": "assets/icon/pexels_boss_themes__pexels_flowing_dress_wind_35920103.webp", "views": {"se3": "assets/gallery/pexels_boss_themes__pexels_flowing_dress_wind_35920103.mp4", "input": "assets/input/pexels_boss_themes__pexels_flowing_dress_wind_35920103.mp4", "combo_sparse": "assets/views/pexels_boss_themes__pexels_flowing_dress_wind_35920103__combo_sparse.mp4", "grid": "assets/views/pexels_boss_themes__pexels_flowing_dress_wind_35920103__grid.mp4", "orbit3d": "assets/views/pexels_boss_themes__pexels_flowing_dress_wind_35920103__orbit3d.mp4", "pca": "assets/views/pexels_boss_themes__pexels_flowing_dress_wind_35920103__pca.mp4", "se3_on_pca": "assets/views/pexels_boss_themes__pexels_flowing_dress_wind_35920103__se3_on_pca.mp4", "tracks": "assets/views/pexels_boss_themes__pexels_flowing_dress_wind_35920103__tracks.mp4", "tracks_world": "assets/views/pexels_boss_themes__pexels_flowing_dress_wind_35920103__tracks_world.mp4"}, "default_view": "se3"}, "cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206": {"clip": "cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206", "label": "Indian sari woman dancing", "teaser_video": "assets/teaser/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 33, "size": [518, 294], "tripods": 8, "area": 0.3291, "rotation_deg": 64.8, "travel_px": 81.4, "video": "assets/gallery/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206.mp4", "poster": "assets/gallery/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206.webp", "icon": "assets/icon/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206.webp", "views": {"se3": "assets/gallery/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206.mp4", "input": "assets/input/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206.mp4", "combo_sparse": "assets/views/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206__combo_sparse.mp4", "grid": "assets/views/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206__grid.mp4", "orbit3d": "assets/views/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206__orbit3d.mp4", "pca": "assets/views/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206__pca.mp4", "se3_on_pca": "assets/views/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206__se3_on_pca.mp4", "tracks": "assets/views/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206__tracks.mp4", "tracks_world": "assets/views/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206__tracks_world.mp4"}, "default_view": "se3"}, "videos__butterfly_small": {"clip": "videos__butterfly_small", "label": "Butterfly small", "teaser_video": "assets/teaser/videos__butterfly_small.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [518, 518], "tripods": 11, "area": 0.1209, "rotation_deg": 51.0, "travel_px": 66.1, "video": "assets/gallery/videos__butterfly_small.mp4", "poster": "assets/gallery/videos__butterfly_small.webp", "icon": "assets/icon/videos__butterfly_small.webp", "views": {"se3": "assets/gallery/videos__butterfly_small.mp4", "input": "assets/input/videos__butterfly_small.mp4", "combo_sparse": "assets/views/videos__butterfly_small__combo_sparse.mp4", "grid": "assets/views/videos__butterfly_small__grid.mp4", "orbit3d": "assets/views/videos__butterfly_small__orbit3d.mp4", "pca": "assets/views/videos__butterfly_small__pca.mp4", "se3_on_pca": "assets/views/videos__butterfly_small__se3_on_pca.mp4", "tracks": "assets/views/videos__butterfly_small__tracks.mp4", "tracks_world": "assets/views/videos__butterfly_small__tracks_world.mp4"}, "default_view": "se3"}, "dycheck_iphone__teddy": {"clip": "dycheck_iphone__teddy", "label": "Teddy", "teaser_video": "assets/teaser/dycheck_iphone__teddy.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [364, 476], "tripods": 8, "area": 0.1566, "rotation_deg": 45.4, "travel_px": 71.9, "video": "assets/gallery/dycheck_iphone__teddy.mp4", "poster": "assets/gallery/dycheck_iphone__teddy.webp", "icon": "assets/icon/dycheck_iphone__teddy.webp", "views": {"se3": "assets/gallery/dycheck_iphone__teddy.mp4", "input": "assets/input/dycheck_iphone__teddy.mp4", "combo_sparse": "assets/views/dycheck_iphone__teddy__combo_sparse.mp4", "grid": "assets/views/dycheck_iphone__teddy__grid.mp4", "orbit3d": "assets/views/dycheck_iphone__teddy__orbit3d.mp4", "pca": "assets/views/dycheck_iphone__teddy__pca.mp4", "pointmap": "assets/views/dycheck_iphone__teddy__pointmap.mp4", "se3_on_pca": "assets/views/dycheck_iphone__teddy__se3_on_pca.mp4", "tracks": "assets/views/dycheck_iphone__teddy__tracks.mp4", "tracks_world": "assets/views/dycheck_iphone__teddy__tracks_world.mp4"}, "default_view": "se3"}, "pixabay_boss__pixabay_140011_woman_model_fashion": {"clip": "pixabay_boss__pixabay_140011_woman_model_fashion", "label": "Woman model fashion", "teaser_video": "assets/teaser/pixabay_boss__pixabay_140011_woman_model_fashion.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [518, 518], "tripods": 10, "area": 0.2224, "rotation_deg": 33.9, "travel_px": 73.2, "video": "assets/gallery/pixabay_boss__pixabay_140011_woman_model_fashion.mp4", "poster": "assets/gallery/pixabay_boss__pixabay_140011_woman_model_fashion.webp", "icon": "assets/icon/pixabay_boss__pixabay_140011_woman_model_fashion.webp", "views": {"se3": "assets/gallery/pixabay_boss__pixabay_140011_woman_model_fashion.mp4", "input": "assets/input/pixabay_boss__pixabay_140011_woman_model_fashion.mp4", "combo_sparse": "assets/views/pixabay_boss__pixabay_140011_woman_model_fashion__combo_sparse.mp4", "grid": "assets/views/pixabay_boss__pixabay_140011_woman_model_fashion__grid.mp4", "orbit3d": "assets/views/pixabay_boss__pixabay_140011_woman_model_fashion__orbit3d.mp4", "pca": "assets/views/pixabay_boss__pixabay_140011_woman_model_fashion__pca.mp4", "se3_on_pca": "assets/views/pixabay_boss__pixabay_140011_woman_model_fashion__se3_on_pca.mp4", "tracks": "assets/views/pixabay_boss__pixabay_140011_woman_model_fashion__tracks.mp4", "tracks_world": "assets/views/pixabay_boss__pixabay_140011_woman_model_fashion__tracks_world.mp4"}, "default_view": "se3"}, "pixabay_boss__pixabay_66636_horse_playground_toy": {"clip": "pixabay_boss__pixabay_66636_horse_playground_toy", "label": "Horse playground toy", "teaser_video": "assets/teaser/pixabay_boss__pixabay_66636_horse_playground_toy.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [518, 392], "tripods": 8, "area": 0.2777, "rotation_deg": 31.5, "travel_px": 84.5, "video": "assets/gallery/pixabay_boss__pixabay_66636_horse_playground_toy.mp4", "poster": "assets/gallery/pixabay_boss__pixabay_66636_horse_playground_toy.webp", "icon": "assets/icon/pixabay_boss__pixabay_66636_horse_playground_toy.webp", "views": {"se3": "assets/gallery/pixabay_boss__pixabay_66636_horse_playground_toy.mp4", "input": "assets/input/pixabay_boss__pixabay_66636_horse_playground_toy.mp4", "combo_sparse": "assets/views/pixabay_boss__pixabay_66636_horse_playground_toy__combo_sparse.mp4", "grid": "assets/views/pixabay_boss__pixabay_66636_horse_playground_toy__grid.mp4", "orbit3d": "assets/views/pixabay_boss__pixabay_66636_horse_playground_toy__orbit3d.mp4", "pca": "assets/views/pixabay_boss__pixabay_66636_horse_playground_toy__pca.mp4", "se3_on_pca": "assets/views/pixabay_boss__pixabay_66636_horse_playground_toy__se3_on_pca.mp4", "tracks": "assets/views/pixabay_boss__pixabay_66636_horse_playground_toy__tracks.mp4", "tracks_world": "assets/views/pixabay_boss__pixabay_66636_horse_playground_toy__tracks_world.mp4"}, "default_view": "se3"}, "pixabay_boss__pixabay_1687_swing_playground_kids": {"clip": "pixabay_boss__pixabay_1687_swing_playground_kids", "label": "Swing playground kids", "teaser_video": "assets/teaser/pixabay_boss__pixabay_1687_swing_playground_kids.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [518, 392], "tripods": 6, "area": 0.1892, "rotation_deg": 28.2, "travel_px": 175.6, "video": "assets/gallery/pixabay_boss__pixabay_1687_swing_playground_kids.mp4", "poster": "assets/gallery/pixabay_boss__pixabay_1687_swing_playground_kids.webp", "icon": "assets/icon/pixabay_boss__pixabay_1687_swing_playground_kids.webp", "views": {"se3": "assets/gallery/pixabay_boss__pixabay_1687_swing_playground_kids.mp4", "input": "assets/input/pixabay_boss__pixabay_1687_swing_playground_kids.mp4", "combo_sparse": "assets/views/pixabay_boss__pixabay_1687_swing_playground_kids__combo_sparse.mp4", "grid": "assets/views/pixabay_boss__pixabay_1687_swing_playground_kids__grid.mp4", "orbit3d": "assets/views/pixabay_boss__pixabay_1687_swing_playground_kids__orbit3d.mp4", "pca": "assets/views/pixabay_boss__pixabay_1687_swing_playground_kids__pca.mp4", "se3_on_pca": "assets/views/pixabay_boss__pixabay_1687_swing_playground_kids__se3_on_pca.mp4", "tracks": "assets/views/pixabay_boss__pixabay_1687_swing_playground_kids__tracks.mp4", "tracks_world": "assets/views/pixabay_boss__pixabay_1687_swing_playground_kids__tracks_world.mp4"}, "default_view": "se3"}, "butterfly": {"clip": "butterfly", "label": "Butterfly", "teaser_video": "assets/teaser/butterfly.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 30, "size": [518, 294], "tripods": 20, "area": 0.3375, "rotation_deg": 27.4, "travel_px": 53.6, "video": "assets/gallery/butterfly.mp4", "poster": "assets/gallery/butterfly.webp", "icon": "assets/icon/butterfly.webp", "views": {"se3": "assets/gallery/butterfly.mp4", "input": "assets/input/butterfly.mp4", "combo_sparse": "assets/views/butterfly__combo_sparse.mp4", "grid": "assets/views/butterfly__grid.mp4", "orbit3d": "assets/views/butterfly__orbit3d.mp4", "pca": "assets/views/butterfly__pca.mp4", "se3_on_pca": "assets/views/butterfly__se3_on_pca.mp4", "tracks": "assets/views/butterfly__tracks.mp4", "tracks_world": "assets/views/butterfly__tracks_world.mp4", "cam": "assets/axis/butterfly__cam.mp4", "zup": "assets/axis/butterfly__zup.mp4", "zout": "assets/axis/butterfly__zout.mp4"}, "default_view": "se3"}, "pixabay_boss__pixabay_158147_girl_kid_swing_park": {"clip": "pixabay_boss__pixabay_158147_girl_kid_swing_park", "label": "Girl kid swing park", "teaser_video": "assets/teaser/pixabay_boss__pixabay_158147_girl_kid_swing_park.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [392, 518], "tripods": 8, "area": 0.1384, "rotation_deg": 26.4, "travel_px": 93.4, "video": "assets/gallery/pixabay_boss__pixabay_158147_girl_kid_swing_park.mp4", "poster": "assets/gallery/pixabay_boss__pixabay_158147_girl_kid_swing_park.webp", "icon": "assets/icon/pixabay_boss__pixabay_158147_girl_kid_swing_park.webp", "views": {"se3": "assets/gallery/pixabay_boss__pixabay_158147_girl_kid_swing_park.mp4", "input": "assets/input/pixabay_boss__pixabay_158147_girl_kid_swing_park.mp4", "combo_sparse": "assets/views/pixabay_boss__pixabay_158147_girl_kid_swing_park__combo_sparse.mp4", "grid": "assets/views/pixabay_boss__pixabay_158147_girl_kid_swing_park__grid.mp4", "orbit3d": "assets/views/pixabay_boss__pixabay_158147_girl_kid_swing_park__orbit3d.mp4", "pca": "assets/views/pixabay_boss__pixabay_158147_girl_kid_swing_park__pca.mp4", "se3_on_pca": "assets/views/pixabay_boss__pixabay_158147_girl_kid_swing_park__se3_on_pca.mp4", "tracks": "assets/views/pixabay_boss__pixabay_158147_girl_kid_swing_park__tracks.mp4", "tracks_world": "assets/views/pixabay_boss__pixabay_158147_girl_kid_swing_park__tracks_world.mp4"}, "default_view": "se3"}, "pixabay_boss__pixabay_1610_legs_boots_baby_swing": {"clip": "pixabay_boss__pixabay_1610_legs_boots_baby_swing", "label": "Legs boots baby swing", "teaser_video": "assets/teaser/pixabay_boss__pixabay_1610_legs_boots_baby_swing.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [518, 392], "tripods": 12, "area": 0.4003, "rotation_deg": 24.7, "travel_px": 87.2, "video": "assets/gallery/pixabay_boss__pixabay_1610_legs_boots_baby_swing.mp4", "poster": "assets/gallery/pixabay_boss__pixabay_1610_legs_boots_baby_swing.webp", "icon": "assets/icon/pixabay_boss__pixabay_1610_legs_boots_baby_swing.webp", "views": {"se3": "assets/gallery/pixabay_boss__pixabay_1610_legs_boots_baby_swing.mp4", "input": "assets/input/pixabay_boss__pixabay_1610_legs_boots_baby_swing.mp4", "combo_sparse": "assets/views/pixabay_boss__pixabay_1610_legs_boots_baby_swing__combo_sparse.mp4", "grid": "assets/views/pixabay_boss__pixabay_1610_legs_boots_baby_swing__grid.mp4", "orbit3d": "assets/views/pixabay_boss__pixabay_1610_legs_boots_baby_swing__orbit3d.mp4", "pca": "assets/views/pixabay_boss__pixabay_1610_legs_boots_baby_swing__pca.mp4", "se3_on_pca": "assets/views/pixabay_boss__pixabay_1610_legs_boots_baby_swing__se3_on_pca.mp4", "tracks": "assets/views/pixabay_boss__pixabay_1610_legs_boots_baby_swing__tracks.mp4", "tracks_world": "assets/views/pixabay_boss__pixabay_1610_legs_boots_baby_swing__tracks_world.mp4"}, "default_view": "se3"}, "videos__tennis": {"clip": "videos__tennis", "label": "Tennis", "teaser_video": "assets/teaser/videos__tennis.mp4", "compare": {"plain": "assets/compare/videos__tennis__plain.mp4"}, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 24, "area": 0.1301, "rotation_deg": 22.8, "travel_px": 176.5, "video": "assets/gallery/videos__tennis.mp4", "poster": "assets/gallery/videos__tennis.webp", "icon": "assets/icon/videos__tennis.webp", "views": {"se3": "assets/gallery/videos__tennis.mp4", "input": "assets/input/videos__tennis.mp4", "combo_sparse": "assets/views/videos__tennis__combo_sparse.mp4", "grid": "assets/views/videos__tennis__grid.mp4", "orbit3d": "assets/views/videos__tennis__orbit3d.mp4", "pca": "assets/views/videos__tennis__pca.mp4", "se3_on_pca": "assets/views/videos__tennis__se3_on_pca.mp4", "tracks": "assets/views/videos__tennis__tracks.mp4", "tracks_world": "assets/views/videos__tennis__tracks_world.mp4"}, "default_view": "se3"}, "teaser__leaves": {"clip": "teaser__leaves", "label": "Leaves", "teaser_video": "assets/teaser/teaser__leaves.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [294, 518], "tripods": 36, "area": 0.2754, "rotation_deg": 20.2, "travel_px": 40.4, "video": "assets/gallery/teaser__leaves.mp4", "poster": "assets/gallery/teaser__leaves.webp", "icon": "assets/icon/teaser__leaves.webp", "views": {"se3": "assets/gallery/teaser__leaves.mp4", "input": "assets/input/teaser__leaves.mp4", "combo_sparse": "assets/views/teaser__leaves__combo_sparse.mp4", "grid": "assets/views/teaser__leaves__grid.mp4", "orbit3d": "assets/views/teaser__leaves__orbit3d.mp4", "pca": "assets/views/teaser__leaves__pca.mp4", "se3_on_pca": "assets/views/teaser__leaves__se3_on_pca.mp4", "tracks": "assets/views/teaser__leaves__tracks.mp4", "tracks_world": "assets/views/teaser__leaves__tracks_world.mp4"}, "default_view": "se3"}, "pexels_boss_themes__pexels_rocking_horse_toy_7600583": {"clip": "pexels_boss_themes__pexels_rocking_horse_toy_7600583", "label": "Rocking horse toy", "teaser_video": "assets/teaser/pexels_boss_themes__pexels_rocking_horse_toy_7600583.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 3, "area": 0.0673, "rotation_deg": 18.0, "travel_px": 25.9, "video": "assets/gallery/pexels_boss_themes__pexels_rocking_horse_toy_7600583.mp4", "poster": "assets/gallery/pexels_boss_themes__pexels_rocking_horse_toy_7600583.webp", "icon": "assets/icon/pexels_boss_themes__pexels_rocking_horse_toy_7600583.webp", "views": {"se3": "assets/gallery/pexels_boss_themes__pexels_rocking_horse_toy_7600583.mp4", "input": "assets/input/pexels_boss_themes__pexels_rocking_horse_toy_7600583.mp4", "combo_sparse": "assets/views/pexels_boss_themes__pexels_rocking_horse_toy_7600583__combo_sparse.mp4", "grid": "assets/views/pexels_boss_themes__pexels_rocking_horse_toy_7600583__grid.mp4", "orbit3d": "assets/views/pexels_boss_themes__pexels_rocking_horse_toy_7600583__orbit3d.mp4", "pca": "assets/views/pexels_boss_themes__pexels_rocking_horse_toy_7600583__pca.mp4", "se3_on_pca": "assets/views/pexels_boss_themes__pexels_rocking_horse_toy_7600583__se3_on_pca.mp4", "tracks": "assets/views/pexels_boss_themes__pexels_rocking_horse_toy_7600583__tracks.mp4", "tracks_world": "assets/views/pexels_boss_themes__pexels_rocking_horse_toy_7600583__tracks_world.mp4"}, "default_view": "se3"}, "pixabay_boss__pixabay_2222_snowdrops_blooming": {"clip": "pixabay_boss__pixabay_2222_snowdrops_blooming", "label": "Snowdrops blooming", "teaser_video": "assets/teaser/pixabay_boss__pixabay_2222_snowdrops_blooming.mp4", "compare": null, "group": "wild", "group_label": "In the wild", "tag": "ship_f70", "frames": 40, "size": [518, 392], "tripods": 16, "area": 0.1117, "rotation_deg": 0.5, "travel_px": 8.5, "video": "assets/gallery/pixabay_boss__pixabay_2222_snowdrops_blooming.mp4", "poster": "assets/gallery/pixabay_boss__pixabay_2222_snowdrops_blooming.webp", "icon": "assets/icon/pixabay_boss__pixabay_2222_snowdrops_blooming.webp", "views": {"se3": "assets/gallery/pixabay_boss__pixabay_2222_snowdrops_blooming.mp4", "input": "assets/input/pixabay_boss__pixabay_2222_snowdrops_blooming.mp4", "combo_sparse": "assets/views/pixabay_boss__pixabay_2222_snowdrops_blooming__combo_sparse.mp4", "grid": "assets/views/pixabay_boss__pixabay_2222_snowdrops_blooming__grid.mp4", "orbit3d": "assets/views/pixabay_boss__pixabay_2222_snowdrops_blooming__orbit3d.mp4", "pca": "assets/views/pixabay_boss__pixabay_2222_snowdrops_blooming__pca.mp4", "se3_on_pca": "assets/views/pixabay_boss__pixabay_2222_snowdrops_blooming__se3_on_pca.mp4", "tracks": "assets/views/pixabay_boss__pixabay_2222_snowdrops_blooming__tracks.mp4", "tracks_world": "assets/views/pixabay_boss__pixabay_2222_snowdrops_blooming__tracks_world.mp4"}, "default_view": "se3"}, "pexels_deformable__pexels_blue_dress_spinning_park_15017751": {"clip": "pexels_deformable__pexels_blue_dress_spinning_park_15017751", "label": "Blue dress spinning park", "teaser_video": "assets/teaser/pexels_deformable__pexels_blue_dress_spinning_park_15017751.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 35, "size": [518, 518], "tripods": 7, "area": 0.1097, "rotation_deg": 139.6, "travel_px": 51.6, "video": "assets/gallery/pexels_deformable__pexels_blue_dress_spinning_park_15017751.mp4", "poster": "assets/gallery/pexels_deformable__pexels_blue_dress_spinning_park_15017751.webp", "icon": "assets/icon/pexels_deformable__pexels_blue_dress_spinning_park_15017751.webp", "views": {"se3": "assets/gallery/pexels_deformable__pexels_blue_dress_spinning_park_15017751.mp4", "input": "assets/input/pexels_deformable__pexels_blue_dress_spinning_park_15017751.mp4", "combo_sparse": "assets/views/pexels_deformable__pexels_blue_dress_spinning_park_15017751__combo_sparse.mp4", "grid": "assets/views/pexels_deformable__pexels_blue_dress_spinning_park_15017751__grid.mp4", "orbit3d": "assets/views/pexels_deformable__pexels_blue_dress_spinning_park_15017751__orbit3d.mp4", "pca": "assets/views/pexels_deformable__pexels_blue_dress_spinning_park_15017751__pca.mp4", "se3_on_pca": "assets/views/pexels_deformable__pexels_blue_dress_spinning_park_15017751__se3_on_pca.mp4", "tracks": "assets/views/pexels_deformable__pexels_blue_dress_spinning_park_15017751__tracks.mp4", "tracks_world": "assets/views/pexels_deformable__pexels_blue_dress_spinning_park_15017751__tracks_world.mp4"}, "default_view": "se3"}, "pexels_deformable__pexels_woman_dress_9347912": {"clip": "pexels_deformable__pexels_woman_dress_9347912", "label": "Woman dress", "teaser_video": "assets/teaser/pexels_deformable__pexels_woman_dress_9347912.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 23, "size": [294, 518], "tripods": 12, "area": 0.5866, "rotation_deg": 90.0, "travel_px": 93.0, "video": "assets/gallery/pexels_deformable__pexels_woman_dress_9347912.mp4", "poster": "assets/gallery/pexels_deformable__pexels_woman_dress_9347912.webp", "icon": "assets/icon/pexels_deformable__pexels_woman_dress_9347912.webp", "views": {"se3": "assets/gallery/pexels_deformable__pexels_woman_dress_9347912.mp4", "input": "assets/input/pexels_deformable__pexels_woman_dress_9347912.mp4", "combo_sparse": "assets/views/pexels_deformable__pexels_woman_dress_9347912__combo_sparse.mp4", "grid": "assets/views/pexels_deformable__pexels_woman_dress_9347912__grid.mp4", "orbit3d": "assets/views/pexels_deformable__pexels_woman_dress_9347912__orbit3d.mp4", "pca": "assets/views/pexels_deformable__pexels_woman_dress_9347912__pca.mp4", "se3_on_pca": "assets/views/pexels_deformable__pexels_woman_dress_9347912__se3_on_pca.mp4", "tracks": "assets/views/pexels_deformable__pexels_woman_dress_9347912__tracks.mp4", "tracks_world": "assets/views/pexels_deformable__pexels_woman_dress_9347912__tracks_world.mp4"}, "default_view": "se3"}, "pexels_deformable__pexels_men_folding_blanket_8979704": {"clip": "pexels_deformable__pexels_men_folding_blanket_8979704", "label": "Men folding blanket", "teaser_video": "assets/teaser/pexels_deformable__pexels_men_folding_blanket_8979704.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 40, "size": [518, 392], "tripods": 8, "area": 0.2192, "rotation_deg": 85.2, "travel_px": 181.5, "video": "assets/gallery/pexels_deformable__pexels_men_folding_blanket_8979704.mp4", "poster": "assets/gallery/pexels_deformable__pexels_men_folding_blanket_8979704.webp", "icon": "assets/icon/pexels_deformable__pexels_men_folding_blanket_8979704.webp", "views": {"se3": "assets/gallery/pexels_deformable__pexels_men_folding_blanket_8979704.mp4", "input": "assets/input/pexels_deformable__pexels_men_folding_blanket_8979704.mp4", "combo_sparse": "assets/views/pexels_deformable__pexels_men_folding_blanket_8979704__combo_sparse.mp4", "grid": "assets/views/pexels_deformable__pexels_men_folding_blanket_8979704__grid.mp4", "orbit3d": "assets/views/pexels_deformable__pexels_men_folding_blanket_8979704__orbit3d.mp4", "pca": "assets/views/pexels_deformable__pexels_men_folding_blanket_8979704__pca.mp4", "se3_on_pca": "assets/views/pexels_deformable__pexels_men_folding_blanket_8979704__se3_on_pca.mp4", "tracks": "assets/views/pexels_deformable__pexels_men_folding_blanket_8979704__tracks.mp4", "tracks_world": "assets/views/pexels_deformable__pexels_men_folding_blanket_8979704__tracks_world.mp4"}, "default_view": "se3"}, "pt_double_stretch_zebra": {"clip": "pt_double_stretch_zebra", "label": "Double stretch zebra", "teaser_video": "assets/teaser/pt_double_stretch_zebra.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 30, "size": [518, 294], "tripods": 6, "area": 0.0392, "rotation_deg": 77.4, "travel_px": 38.5, "video": "assets/gallery/pt_double_stretch_zebra.mp4", "poster": "assets/gallery/pt_double_stretch_zebra.webp", "icon": "assets/icon/pt_double_stretch_zebra.webp", "views": {"se3": "assets/gallery/pt_double_stretch_zebra.mp4", "input": "assets/input/pt_double_stretch_zebra.mp4", "combo_sparse": "assets/views/pt_double_stretch_zebra__combo_sparse.mp4", "grid": "assets/views/pt_double_stretch_zebra__grid.mp4", "orbit3d": "assets/views/pt_double_stretch_zebra__orbit3d.mp4", "pca": "assets/views/pt_double_stretch_zebra__pca.mp4", "se3_on_pca": "assets/views/pt_double_stretch_zebra__se3_on_pca.mp4", "tracks": "assets/views/pt_double_stretch_zebra__tracks.mp4", "tracks_world": "assets/views/pt_double_stretch_zebra__tracks_world.mp4"}, "default_view": "se3"}, "pexels_deformable__pexels_plastic_bag_fluttering_field_37887006": {"clip": "pexels_deformable__pexels_plastic_bag_fluttering_field_37887006", "label": "Plastic bag fluttering field", "teaser_video": "assets/teaser/pexels_deformable__pexels_plastic_bag_fluttering_field_37887006.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 40, "size": [294, 518], "tripods": 5, "area": 0.0333, "rotation_deg": 72.9, "travel_px": 115.8, "video": "assets/gallery/pexels_deformable__pexels_plastic_bag_fluttering_field_37887006.mp4", "poster": "assets/gallery/pexels_deformable__pexels_plastic_bag_fluttering_field_37887006.webp", "icon": "assets/icon/pexels_deformable__pexels_plastic_bag_fluttering_field_37887006.webp", "views": {"se3": "assets/gallery/pexels_deformable__pexels_plastic_bag_fluttering_field_37887006.mp4", "input": "assets/input/pexels_deformable__pexels_plastic_bag_fluttering_field_37887006.mp4", "combo_sparse": "assets/views/pexels_deformable__pexels_plastic_bag_fluttering_field_37887006__combo_sparse.mp4", "grid": "assets/views/pexels_deformable__pexels_plastic_bag_fluttering_field_37887006__grid.mp4", "orbit3d": "assets/views/pexels_deformable__pexels_plastic_bag_fluttering_field_37887006__orbit3d.mp4", "pca": "assets/views/pexels_deformable__pexels_plastic_bag_fluttering_field_37887006__pca.mp4", "se3_on_pca": "assets/views/pexels_deformable__pexels_plastic_bag_fluttering_field_37887006__se3_on_pca.mp4", "tracks": "assets/views/pexels_deformable__pexels_plastic_bag_fluttering_field_37887006__tracks.mp4", "tracks_world": "assets/views/pexels_deformable__pexels_plastic_bag_fluttering_field_37887006__tracks_world.mp4"}, "default_view": "se3"}, "pt_single_lift_cloth": {"clip": "pt_single_lift_cloth", "label": "Single lift cloth", "teaser_video": "assets/teaser/pt_single_lift_cloth.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 12, "area": 0.1873, "rotation_deg": 64.2, "travel_px": 61.0, "video": "assets/gallery/pt_single_lift_cloth.mp4", "poster": "assets/gallery/pt_single_lift_cloth.webp", "icon": "assets/icon/pt_single_lift_cloth.webp", "views": {"se3": "assets/gallery/pt_single_lift_cloth.mp4", "input": "assets/input/pt_single_lift_cloth.mp4", "combo_sparse": "assets/views/pt_single_lift_cloth__combo_sparse.mp4", "grid": "assets/views/pt_single_lift_cloth__grid.mp4", "orbit3d": "assets/views/pt_single_lift_cloth__orbit3d.mp4", "pca": "assets/views/pt_single_lift_cloth__pca.mp4", "se3_on_pca": "assets/views/pt_single_lift_cloth__se3_on_pca.mp4", "tracks": "assets/views/pt_single_lift_cloth__tracks.mp4", "tracks_world": "assets/views/pt_single_lift_cloth__tracks_world.mp4"}, "default_view": "se3"}, "pexels_deformable__pexels_paper_map_wind_7606344": {"clip": "pexels_deformable__pexels_paper_map_wind_7606344", "label": "Paper map wind", "teaser_video": "assets/teaser/pexels_deformable__pexels_paper_map_wind_7606344.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 11, "area": 0.2797, "rotation_deg": 56.5, "travel_px": 65.6, "video": "assets/gallery/pexels_deformable__pexels_paper_map_wind_7606344.mp4", "poster": "assets/gallery/pexels_deformable__pexels_paper_map_wind_7606344.webp", "icon": "assets/icon/pexels_deformable__pexels_paper_map_wind_7606344.webp", "views": {"se3": "assets/gallery/pexels_deformable__pexels_paper_map_wind_7606344.mp4", "input": "assets/input/pexels_deformable__pexels_paper_map_wind_7606344.mp4", "combo_sparse": "assets/views/pexels_deformable__pexels_paper_map_wind_7606344__combo_sparse.mp4", "grid": "assets/views/pexels_deformable__pexels_paper_map_wind_7606344__grid.mp4", "orbit3d": "assets/views/pexels_deformable__pexels_paper_map_wind_7606344__orbit3d.mp4", "pca": "assets/views/pexels_deformable__pexels_paper_map_wind_7606344__pca.mp4", "se3_on_pca": "assets/views/pexels_deformable__pexels_paper_map_wind_7606344__se3_on_pca.mp4", "tracks": "assets/views/pexels_deformable__pexels_paper_map_wind_7606344__tracks.mp4", "tracks_world": "assets/views/pexels_deformable__pexels_paper_map_wind_7606344__tracks_world.mp4"}, "default_view": "se3"}, "pt_weird_package": {"clip": "pt_weird_package", "label": "Weird package", "teaser_video": "assets/teaser/pt_weird_package.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 20, "size": [518, 294], "tripods": 11, "area": 0.0643, "rotation_deg": 45.4, "travel_px": 48.5, "video": "assets/gallery/pt_weird_package.mp4", "poster": "assets/gallery/pt_weird_package.webp", "icon": "assets/icon/pt_weird_package.webp", "views": {"se3": "assets/gallery/pt_weird_package.mp4", "input": "assets/input/pt_weird_package.mp4", "combo_sparse": "assets/views/pt_weird_package__combo_sparse.mp4", "grid": "assets/views/pt_weird_package__grid.mp4", "orbit3d": "assets/views/pt_weird_package__orbit3d.mp4", "pca": "assets/views/pt_weird_package__pca.mp4", "se3_on_pca": "assets/views/pt_weird_package__se3_on_pca.mp4", "tracks": "assets/views/pt_weird_package__tracks.mp4", "tracks_world": "assets/views/pt_weird_package__tracks_world.mp4"}, "default_view": "se3"}, "pt_single_push_rope": {"clip": "pt_single_push_rope", "label": "Single push rope", "teaser_video": "assets/teaser/pt_single_push_rope.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 32, "size": [518, 294], "tripods": 4, "area": 0.0119, "rotation_deg": 34.8, "travel_px": 22.3, "video": "assets/gallery/pt_single_push_rope.mp4", "poster": "assets/gallery/pt_single_push_rope.webp", "icon": "assets/icon/pt_single_push_rope.webp", "views": {"se3": "assets/gallery/pt_single_push_rope.mp4", "input": "assets/input/pt_single_push_rope.mp4", "combo_sparse": "assets/views/pt_single_push_rope__combo_sparse.mp4", "grid": "assets/views/pt_single_push_rope__grid.mp4", "orbit3d": "assets/views/pt_single_push_rope__orbit3d.mp4", "pca": "assets/views/pt_single_push_rope__pca.mp4", "se3_on_pca": "assets/views/pt_single_push_rope__se3_on_pca.mp4", "tracks": "assets/views/pt_single_push_rope__tracks.mp4", "tracks_world": "assets/views/pt_single_push_rope__tracks_world.mp4"}, "default_view": "se3"}, "pt_single_lift_rope": {"clip": "pt_single_lift_rope", "label": "Single lift rope", "teaser_video": "assets/teaser/pt_single_lift_rope.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 24, "size": [518, 294], "tripods": 6, "area": 0.0125, "rotation_deg": 29.7, "travel_px": 11.8, "video": "assets/gallery/pt_single_lift_rope.mp4", "poster": "assets/gallery/pt_single_lift_rope.webp", "icon": "assets/icon/pt_single_lift_rope.webp", "views": {"se3": "assets/gallery/pt_single_lift_rope.mp4", "input": "assets/input/pt_single_lift_rope.mp4", "combo_sparse": "assets/views/pt_single_lift_rope__combo_sparse.mp4", "grid": "assets/views/pt_single_lift_rope__grid.mp4", "orbit3d": "assets/views/pt_single_lift_rope__orbit3d.mp4", "pca": "assets/views/pt_single_lift_rope__pca.mp4", "se3_on_pca": "assets/views/pt_single_lift_rope__se3_on_pca.mp4", "tracks": "assets/views/pt_single_lift_rope__tracks.mp4", "tracks_world": "assets/views/pt_single_lift_rope__tracks_world.mp4", "cam": "assets/axis/pt_single_lift_rope__cam.mp4", "zup": "assets/axis/pt_single_lift_rope__zup.mp4", "zout": "assets/axis/pt_single_lift_rope__zout.mp4"}, "default_view": "se3"}, "pt_double_stretch_sloth": {"clip": "pt_double_stretch_sloth", "label": "Double stretch sloth", "teaser_video": "assets/teaser/pt_double_stretch_sloth.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 32, "size": [518, 294], "tripods": 4, "area": 0.0786, "rotation_deg": 21.8, "travel_px": 24.4, "video": "assets/gallery/pt_double_stretch_sloth.mp4", "poster": "assets/gallery/pt_double_stretch_sloth.webp", "icon": "assets/icon/pt_double_stretch_sloth.webp", "views": {"se3": "assets/gallery/pt_double_stretch_sloth.mp4", "input": "assets/input/pt_double_stretch_sloth.mp4", "combo_sparse": "assets/views/pt_double_stretch_sloth__combo_sparse.mp4", "grid": "assets/views/pt_double_stretch_sloth__grid.mp4", "orbit3d": "assets/views/pt_double_stretch_sloth__orbit3d.mp4", "pca": "assets/views/pt_double_stretch_sloth__pca.mp4", "se3_on_pca": "assets/views/pt_double_stretch_sloth__se3_on_pca.mp4", "tracks": "assets/views/pt_double_stretch_sloth__tracks.mp4", "tracks_world": "assets/views/pt_double_stretch_sloth__tracks_world.mp4"}, "default_view": "se3"}, "deformable2__sponge_squeezing_6872061": {"clip": "deformable2__sponge_squeezing_6872061", "label": "Sponge squeezing", "teaser_video": "assets/teaser/deformable2__sponge_squeezing_6872061.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 13, "area": 0.4153, "rotation_deg": 16.1, "travel_px": 64.3, "video": "assets/gallery/deformable2__sponge_squeezing_6872061.mp4", "poster": "assets/gallery/deformable2__sponge_squeezing_6872061.webp", "icon": "assets/icon/deformable2__sponge_squeezing_6872061.webp", "views": {"se3": "assets/gallery/deformable2__sponge_squeezing_6872061.mp4", "input": "assets/input/deformable2__sponge_squeezing_6872061.mp4", "combo_sparse": "assets/views/deformable2__sponge_squeezing_6872061__combo_sparse.mp4", "grid": "assets/views/deformable2__sponge_squeezing_6872061__grid.mp4", "orbit3d": "assets/views/deformable2__sponge_squeezing_6872061__orbit3d.mp4", "pca": "assets/views/deformable2__sponge_squeezing_6872061__pca.mp4", "se3_on_pca": "assets/views/deformable2__sponge_squeezing_6872061__se3_on_pca.mp4", "tracks": "assets/views/deformable2__sponge_squeezing_6872061__tracks.mp4", "tracks_world": "assets/views/deformable2__sponge_squeezing_6872061__tracks_world.mp4"}, "default_view": "se3"}, "pt_single_push_sloth": {"clip": "pt_single_push_sloth", "label": "Single push sloth", "teaser_video": "assets/teaser/pt_single_push_sloth.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 33, "size": [518, 294], "tripods": 14, "area": 0.0644, "rotation_deg": 3.1, "travel_px": 69.4, "video": "assets/gallery/pt_single_push_sloth.mp4", "poster": "assets/gallery/pt_single_push_sloth.webp", "icon": "assets/icon/pt_single_push_sloth.webp", "views": {"se3": "assets/gallery/pt_single_push_sloth.mp4", "input": "assets/input/pt_single_push_sloth.mp4", "combo_sparse": "assets/views/pt_single_push_sloth__combo_sparse.mp4", "grid": "assets/views/pt_single_push_sloth__grid.mp4", "orbit3d": "assets/views/pt_single_push_sloth__orbit3d.mp4", "pca": "assets/views/pt_single_push_sloth__pca.mp4", "se3_on_pca": "assets/views/pt_single_push_sloth__se3_on_pca.mp4", "tracks": "assets/views/pt_single_push_sloth__tracks.mp4", "tracks_world": "assets/views/pt_single_push_sloth__tracks_world.mp4", "cam": "assets/axis/pt_single_push_sloth__cam.mp4", "zup": "assets/axis/pt_single_push_sloth__zup.mp4", "zout": "assets/axis/pt_single_push_sloth__zout.mp4"}, "default_view": "se3"}, "pexels_deformable__pexels_fitting_room_dress_8388366": {"clip": "pexels_deformable__pexels_fitting_room_dress_8388366", "label": "Fitting room dress", "teaser_video": "assets/teaser/pexels_deformable__pexels_fitting_room_dress_8388366.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 40, "size": [392, 518], "tripods": 30, "area": 0.945, "rotation_deg": 1.0, "travel_px": 17.2, "video": "assets/gallery/pexels_deformable__pexels_fitting_room_dress_8388366.mp4", "poster": "assets/gallery/pexels_deformable__pexels_fitting_room_dress_8388366.webp", "icon": "assets/icon/pexels_deformable__pexels_fitting_room_dress_8388366.webp", "views": {"se3": "assets/gallery/pexels_deformable__pexels_fitting_room_dress_8388366.mp4", "input": "assets/input/pexels_deformable__pexels_fitting_room_dress_8388366.mp4", "combo_sparse": "assets/views/pexels_deformable__pexels_fitting_room_dress_8388366__combo_sparse.mp4", "grid": "assets/views/pexels_deformable__pexels_fitting_room_dress_8388366__grid.mp4", "orbit3d": "assets/views/pexels_deformable__pexels_fitting_room_dress_8388366__orbit3d.mp4", "pca": "assets/views/pexels_deformable__pexels_fitting_room_dress_8388366__pca.mp4", "se3_on_pca": "assets/views/pexels_deformable__pexels_fitting_room_dress_8388366__se3_on_pca.mp4", "tracks": "assets/views/pexels_deformable__pexels_fitting_room_dress_8388366__tracks.mp4", "tracks_world": "assets/views/pexels_deformable__pexels_fitting_room_dress_8388366__tracks_world.mp4"}, "default_view": "se3"}, "pexels_deformable__pexels_girl_mother_making_bed_10554783": {"clip": "pexels_deformable__pexels_girl_mother_making_bed_10554783", "label": "Girl mother making bed", "teaser_video": "assets/teaser/pexels_deformable__pexels_girl_mother_making_bed_10554783.mp4", "compare": null, "group": "phystwin", "group_label": "Deformable", "tag": "ship_f70", "frames": 40, "size": [518, 518], "tripods": 12, "area": 0.2245, "rotation_deg": 1.0, "travel_px": 19.1, "video": "assets/gallery/pexels_deformable__pexels_girl_mother_making_bed_10554783.mp4", "poster": "assets/gallery/pexels_deformable__pexels_girl_mother_making_bed_10554783.webp", "icon": "assets/icon/pexels_deformable__pexels_girl_mother_making_bed_10554783.webp", "views": {"se3": "assets/gallery/pexels_deformable__pexels_girl_mother_making_bed_10554783.mp4", "input": "assets/input/pexels_deformable__pexels_girl_mother_making_bed_10554783.mp4", "combo_sparse": "assets/views/pexels_deformable__pexels_girl_mother_making_bed_10554783__combo_sparse.mp4", "grid": "assets/views/pexels_deformable__pexels_girl_mother_making_bed_10554783__grid.mp4", "orbit3d": "assets/views/pexels_deformable__pexels_girl_mother_making_bed_10554783__orbit3d.mp4", "pca": "assets/views/pexels_deformable__pexels_girl_mother_making_bed_10554783__pca.mp4", "se3_on_pca": "assets/views/pexels_deformable__pexels_girl_mother_making_bed_10554783__se3_on_pca.mp4", "tracks": "assets/views/pexels_deformable__pexels_girl_mother_making_bed_10554783__tracks.mp4", "tracks_world": "assets/views/pexels_deformable__pexels_girl_mother_making_bed_10554783__tracks_world.mp4"}, "default_view": "se3"}, "collision__dominoes_falling_8102764": {"clip": "collision__dominoes_falling_8102764", "label": "Dominoes falling", "teaser_video": "assets/teaser/collision__dominoes_falling_8102764.mp4", "compare": null, "group": "collision", "group_label": "Collision", "tag": "ship_f70", "frames": 40, "size": [518, 280], "tripods": 9, "area": 0.1364, "rotation_deg": 46.5, "travel_px": 47.6, "video": "assets/gallery/collision__dominoes_falling_8102764.mp4", "poster": "assets/gallery/collision__dominoes_falling_8102764.webp", "icon": "assets/icon/collision__dominoes_falling_8102764.webp", "views": {"se3": "assets/gallery/collision__dominoes_falling_8102764.mp4", "input": "assets/input/collision__dominoes_falling_8102764.mp4", "combo_sparse": "assets/views/collision__dominoes_falling_8102764__combo_sparse.mp4", "grid": "assets/views/collision__dominoes_falling_8102764__grid.mp4", "orbit3d": "assets/views/collision__dominoes_falling_8102764__orbit3d.mp4", "pca": "assets/views/collision__dominoes_falling_8102764__pca.mp4", "se3_on_pca": "assets/views/collision__dominoes_falling_8102764__se3_on_pca.mp4", "tracks": "assets/views/collision__dominoes_falling_8102764__tracks.mp4", "tracks_world": "assets/views/collision__dominoes_falling_8102764__tracks_world.mp4"}, "default_view": "se3"}, "articulated__scissors_cutting_paper_6977414": {"clip": "articulated__scissors_cutting_paper_6977414", "label": "Scissors cutting paper", "teaser_video": "assets/teaser/articulated__scissors_cutting_paper_6977414.mp4", "compare": null, "group": "articulated", "group_label": "Articulated", "tag": "ship_f70", "frames": 40, "size": [518, 280], "tripods": 4, "area": 0.0928, "rotation_deg": 55.3, "travel_px": 29.4, "video": "assets/gallery/articulated__scissors_cutting_paper_6977414.mp4", "poster": "assets/gallery/articulated__scissors_cutting_paper_6977414.webp", "icon": "assets/icon/articulated__scissors_cutting_paper_6977414.webp", "views": {"se3": "assets/gallery/articulated__scissors_cutting_paper_6977414.mp4", "input": "assets/input/articulated__scissors_cutting_paper_6977414.mp4", "combo_sparse": "assets/views/articulated__scissors_cutting_paper_6977414__combo_sparse.mp4", "grid": "assets/views/articulated__scissors_cutting_paper_6977414__grid.mp4", "orbit3d": "assets/views/articulated__scissors_cutting_paper_6977414__orbit3d.mp4", "pca": "assets/views/articulated__scissors_cutting_paper_6977414__pca.mp4", "se3_on_pca": "assets/views/articulated__scissors_cutting_paper_6977414__se3_on_pca.mp4", "tracks": "assets/views/articulated__scissors_cutting_paper_6977414__tracks.mp4", "tracks_world": "assets/views/articulated__scissors_cutting_paper_6977414__tracks_world.mp4"}, "default_view": "se3"}, "camera_motion__orbit_around_statue_19527872": {"clip": "camera_motion__orbit_around_statue_19527872", "label": "Orbit around statue", "teaser_video": "assets/teaser/camera_motion__orbit_around_statue_19527872.mp4", "compare": null, "group": "camera", "group_label": "Camera motion", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 11, "area": 0.1881, "rotation_deg": 0.4, "travel_px": 108.9, "video": "assets/gallery/camera_motion__orbit_around_statue_19527872.mp4", "poster": "assets/gallery/camera_motion__orbit_around_statue_19527872.webp", "icon": "assets/icon/camera_motion__orbit_around_statue_19527872.webp", "views": {"se3": "assets/gallery/camera_motion__orbit_around_statue_19527872.mp4", "input": "assets/input/camera_motion__orbit_around_statue_19527872.mp4", "combo_sparse": "assets/views/camera_motion__orbit_around_statue_19527872__combo_sparse.mp4", "grid": "assets/views/camera_motion__orbit_around_statue_19527872__grid.mp4", "orbit3d": "assets/views/camera_motion__orbit_around_statue_19527872__orbit3d.mp4", "pca": "assets/views/camera_motion__orbit_around_statue_19527872__pca.mp4", "se3_on_pca": "assets/views/camera_motion__orbit_around_statue_19527872__se3_on_pca.mp4", "tracks": "assets/views/camera_motion__orbit_around_statue_19527872__tracks.mp4", "tracks_world": "assets/views/camera_motion__orbit_around_statue_19527872__tracks_world.mp4"}, "default_view": "se3"}, "epic_P01_12_pour_milk": {"clip": "epic_P01_12_pour_milk", "label": "Pour milk", "teaser_video": "assets/teaser/epic_P01_12_pour_milk.mp4", "compare": null, "group": "epic", "group_label": "EPIC-KITCHENS", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 10, "area": 0.1593, "rotation_deg": 74.3, "travel_px": 76.4, "video": "assets/gallery/epic_P01_12_pour_milk.mp4", "poster": "assets/gallery/epic_P01_12_pour_milk.webp", "icon": "assets/icon/epic_P01_12_pour_milk.webp", "views": {"se3": "assets/gallery/epic_P01_12_pour_milk.mp4", "input": "assets/input/epic_P01_12_pour_milk.mp4", "combo_sparse": "assets/views/epic_P01_12_pour_milk__combo_sparse.mp4", "grid": "assets/views/epic_P01_12_pour_milk__grid.mp4", "orbit3d": "assets/views/epic_P01_12_pour_milk__orbit3d.mp4", "pca": "assets/views/epic_P01_12_pour_milk__pca.mp4", "se3_on_pca": "assets/views/epic_P01_12_pour_milk__se3_on_pca.mp4", "tracks": "assets/views/epic_P01_12_pour_milk__tracks.mp4", "tracks_world": "assets/views/epic_P01_12_pour_milk__tracks_world.mp4"}, "default_view": "se3"}, "epic_P10_03_shake_pot": {"clip": "epic_P10_03_shake_pot", "label": "Shake pot", "teaser_video": "assets/teaser/epic_P10_03_shake_pot.mp4", "compare": null, "group": "epic", "group_label": "EPIC-KITCHENS", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 24, "area": 0.1863, "rotation_deg": 52.3, "travel_px": 48.8, "video": "assets/gallery/epic_P10_03_shake_pot.mp4", "poster": "assets/gallery/epic_P10_03_shake_pot.webp", "icon": "assets/icon/epic_P10_03_shake_pot.webp", "views": {"se3": "assets/gallery/epic_P10_03_shake_pot.mp4", "input": "assets/input/epic_P10_03_shake_pot.mp4", "combo_sparse": "assets/views/epic_P10_03_shake_pot__combo_sparse.mp4", "grid": "assets/views/epic_P10_03_shake_pot__grid.mp4", "orbit3d": "assets/views/epic_P10_03_shake_pot__orbit3d.mp4", "pca": "assets/views/epic_P10_03_shake_pot__pca.mp4", "se3_on_pca": "assets/views/epic_P10_03_shake_pot__se3_on_pca.mp4", "tracks": "assets/views/epic_P10_03_shake_pot__tracks.mp4", "tracks_world": "assets/views/epic_P10_03_shake_pot__tracks_world.mp4", "cam": "assets/axis/epic_P10_03_shake_pot__cam.mp4", "zup": "assets/axis/epic_P10_03_shake_pot__zup.mp4", "zout": "assets/axis/epic_P10_03_shake_pot__zout.mp4"}, "default_view": "se3"}, "px_hands_kneading_dough_6481505": {"clip": "px_hands_kneading_dough_6481505", "label": "Hands kneading dough", "teaser_video": "assets/teaser/px_hands_kneading_dough_6481505.mp4", "compare": null, "group": "pexels", "group_label": "Stock footage", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 10, "area": 0.156, "rotation_deg": 101.8, "travel_px": 118.2, "video": "assets/gallery/px_hands_kneading_dough_6481505.mp4", "poster": "assets/gallery/px_hands_kneading_dough_6481505.webp", "icon": "assets/icon/px_hands_kneading_dough_6481505.webp", "views": {"se3": "assets/gallery/px_hands_kneading_dough_6481505.mp4", "input": "assets/input/px_hands_kneading_dough_6481505.mp4", "combo_sparse": "assets/views/px_hands_kneading_dough_6481505__combo_sparse.mp4", "grid": "assets/views/px_hands_kneading_dough_6481505__grid.mp4", "orbit3d": "assets/views/px_hands_kneading_dough_6481505__orbit3d.mp4", "pca": "assets/views/px_hands_kneading_dough_6481505__pca.mp4", "se3_on_pca": "assets/views/px_hands_kneading_dough_6481505__se3_on_pca.mp4", "tracks": "assets/views/px_hands_kneading_dough_6481505__tracks.mp4", "tracks_world": "assets/views/px_hands_kneading_dough_6481505__tracks_world.mp4"}, "default_view": "se3"}, "px_cutting_vegetables_closeup_7430567": {"clip": "px_cutting_vegetables_closeup_7430567", "label": "Cutting vegetables closeup", "teaser_video": "assets/teaser/px_cutting_vegetables_closeup_7430567.mp4", "compare": null, "group": "pexels", "group_label": "Stock footage", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 12, "area": 0.1995, "rotation_deg": 67.2, "travel_px": 60.9, "video": "assets/gallery/px_cutting_vegetables_closeup_7430567.mp4", "poster": "assets/gallery/px_cutting_vegetables_closeup_7430567.webp", "icon": "assets/icon/px_cutting_vegetables_closeup_7430567.webp", "views": {"se3": "assets/gallery/px_cutting_vegetables_closeup_7430567.mp4", "input": "assets/input/px_cutting_vegetables_closeup_7430567.mp4", "combo_sparse": "assets/views/px_cutting_vegetables_closeup_7430567__combo_sparse.mp4", "grid": "assets/views/px_cutting_vegetables_closeup_7430567__grid.mp4", "orbit3d": "assets/views/px_cutting_vegetables_closeup_7430567__orbit3d.mp4", "pca": "assets/views/px_cutting_vegetables_closeup_7430567__pca.mp4", "se3_on_pca": "assets/views/px_cutting_vegetables_closeup_7430567__se3_on_pca.mp4", "tracks": "assets/views/px_cutting_vegetables_closeup_7430567__tracks.mp4", "tracks_world": "assets/views/px_cutting_vegetables_closeup_7430567__tracks_world.mp4"}, "default_view": "se3"}, "px_toy_car_moving_4106907": {"clip": "px_toy_car_moving_4106907", "label": "Toy car moving", "teaser_video": "assets/teaser/px_toy_car_moving_4106907.mp4", "compare": null, "group": "pexels", "group_label": "Stock footage", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 1, "area": 0.0842, "rotation_deg": 23.2, "travel_px": 106.4, "video": "assets/gallery/px_toy_car_moving_4106907.mp4", "poster": "assets/gallery/px_toy_car_moving_4106907.webp", "icon": "assets/icon/px_toy_car_moving_4106907.webp", "views": {"se3": "assets/gallery/px_toy_car_moving_4106907.mp4", "input": "assets/input/px_toy_car_moving_4106907.mp4", "combo_sparse": "assets/views/px_toy_car_moving_4106907__combo_sparse.mp4", "grid": "assets/views/px_toy_car_moving_4106907__grid.mp4", "orbit3d": "assets/views/px_toy_car_moving_4106907__orbit3d.mp4", "pca": "assets/views/px_toy_car_moving_4106907__pca.mp4", "se3_on_pca": "assets/views/px_toy_car_moving_4106907__se3_on_pca.mp4", "tracks": "assets/views/px_toy_car_moving_4106907__tracks.mp4", "tracks_world": "assets/views/px_toy_car_moving_4106907__tracks_world.mp4"}, "default_view": "se3"}, "px_hand_picking_up_cup_39173954": {"clip": "px_hand_picking_up_cup_39173954", "label": "Hand picking up cup", "teaser_video": "assets/teaser/px_hand_picking_up_cup_39173954.mp4", "compare": null, "group": "pexels", "group_label": "Stock footage", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 11, "area": 0.3278, "rotation_deg": 22.4, "travel_px": 312.7, "video": "assets/gallery/px_hand_picking_up_cup_39173954.mp4", "poster": "assets/gallery/px_hand_picking_up_cup_39173954.webp", "icon": "assets/icon/px_hand_picking_up_cup_39173954.webp", "views": {"se3": "assets/gallery/px_hand_picking_up_cup_39173954.mp4", "input": "assets/input/px_hand_picking_up_cup_39173954.mp4", "combo_sparse": "assets/views/px_hand_picking_up_cup_39173954__combo_sparse.mp4", "grid": "assets/views/px_hand_picking_up_cup_39173954__grid.mp4", "orbit3d": "assets/views/px_hand_picking_up_cup_39173954__orbit3d.mp4", "pca": "assets/views/px_hand_picking_up_cup_39173954__pca.mp4", "se3_on_pca": "assets/views/px_hand_picking_up_cup_39173954__se3_on_pca.mp4", "tracks": "assets/views/px_hand_picking_up_cup_39173954__tracks.mp4", "tracks_world": "assets/views/px_hand_picking_up_cup_39173954__tracks_world.mp4"}, "default_view": "se3"}, "px_hands_folding_paper_28405807": {"clip": "px_hands_folding_paper_28405807", "label": "Hands folding paper", "teaser_video": "assets/teaser/px_hands_folding_paper_28405807.mp4", "compare": null, "group": "pexels", "group_label": "Stock footage", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 9, "area": 0.0, "rotation_deg": 19.2, "travel_px": 149.2, "video": "assets/gallery/px_hands_folding_paper_28405807.mp4", "poster": "assets/gallery/px_hands_folding_paper_28405807.webp", "icon": "assets/icon/px_hands_folding_paper_28405807.webp", "views": {"se3": "assets/gallery/px_hands_folding_paper_28405807.mp4", "input": "assets/input/px_hands_folding_paper_28405807.mp4", "combo_sparse": "assets/views/px_hands_folding_paper_28405807__combo_sparse.mp4", "grid": "assets/views/px_hands_folding_paper_28405807__grid.mp4", "orbit3d": "assets/views/px_hands_folding_paper_28405807__orbit3d.mp4", "pca": "assets/views/px_hands_folding_paper_28405807__pca.mp4", "se3_on_pca": "assets/views/px_hands_folding_paper_28405807__se3_on_pca.mp4", "tracks": "assets/views/px_hands_folding_paper_28405807__tracks.mp4", "tracks_world": "assets/views/px_hands_folding_paper_28405807__tracks_world.mp4"}, "default_view": "se3"}, "px_spinning_top_4039956": {"clip": "px_spinning_top_4039956", "label": "Spinning top 1", "teaser_video": "assets/teaser/px_spinning_top_4039956.mp4", "compare": null, "group": "pexels", "group_label": "Stock footage", "tag": "ship_f70", "frames": 40, "size": [518, 392], "tripods": 23, "area": 0.2505, "rotation_deg": 16.2, "travel_px": 49.8, "video": "assets/gallery/px_spinning_top_4039956.mp4", "poster": "assets/gallery/px_spinning_top_4039956.webp", "icon": "assets/icon/px_spinning_top_4039956.webp", "views": {"se3": "assets/gallery/px_spinning_top_4039956.mp4", "input": "assets/input/px_spinning_top_4039956.mp4", "combo_sparse": "assets/views/px_spinning_top_4039956__combo_sparse.mp4", "grid": "assets/views/px_spinning_top_4039956__grid.mp4", "orbit3d": "assets/views/px_spinning_top_4039956__orbit3d.mp4", "pca": "assets/views/px_spinning_top_4039956__pca.mp4", "se3_on_pca": "assets/views/px_spinning_top_4039956__se3_on_pca.mp4", "tracks": "assets/views/px_spinning_top_4039956__tracks.mp4", "tracks_world": "assets/views/px_spinning_top_4039956__tracks_world.mp4", "cam": "assets/axis/px_spinning_top_4039956__cam.mp4", "zup": "assets/axis/px_spinning_top_4039956__zup.mp4", "zout": "assets/axis/px_spinning_top_4039956__zout.mp4"}, "default_view": "se3"}, "droid0": {"clip": "droid0", "label": "DROID", "teaser_video": "assets/teaser/droid0.mp4", "compare": null, "group": "robot", "group_label": "Robot", "tag": "ship_f70", "frames": 40, "size": [518, 294], "tripods": 4, "area": 0.1092, "rotation_deg": 100.4, "travel_px": 114.9, "video": "assets/gallery/droid0.mp4", "poster": "assets/gallery/droid0.webp", "icon": "assets/icon/droid0.webp", "views": {"se3": "assets/gallery/droid0.mp4", "input": "assets/input/droid0.mp4", "combo_sparse": "assets/views/droid0__combo_sparse.mp4", "grid": "assets/views/droid0__grid.mp4", "orbit3d": "assets/views/droid0__orbit3d.mp4", "pca": "assets/views/droid0__pca.mp4", "se3_on_pca": "assets/views/droid0__se3_on_pca.mp4", "tracks": "assets/views/droid0__tracks.mp4", "tracks_world": "assets/views/droid0__tracks_world.mp4"}, "default_view": "se3"}, "agibot0": {"clip": "agibot0", "label": "AgiBot World", "teaser_video": "assets/teaser/agibot0.mp4", "compare": null, "group": "robot", "group_label": "Robot", "tag": "ship_f70", "frames": 40, "size": [518, 392], "tripods": 5, "area": 0.1434, "rotation_deg": 72.5, "travel_px": 227.0, "video": "assets/gallery/agibot0.mp4", "poster": "assets/gallery/agibot0.webp", "icon": "assets/icon/agibot0.webp", "views": {"se3": "assets/gallery/agibot0.mp4", "input": "assets/input/agibot0.mp4", "combo_sparse": "assets/views/agibot0__combo_sparse.mp4", "orbit3d": "assets/views/agibot0__orbit3d.mp4", "pca": "assets/views/agibot0__pca.mp4", "se3_on_pca": "assets/views/agibot0__se3_on_pca.mp4", "tracks": "assets/views/agibot0__tracks.mp4", "tracks_world": "assets/views/agibot0__tracks_world.mp4"}, "default_view": "se3"}, "bridge0": {"clip": "bridge0", "label": "BridgeData", "teaser_video": "assets/teaser/bridge0.mp4", "compare": null, "group": "robot", "group_label": "Robot", "tag": "ship_f70", "frames": 38, "size": [518, 392], "tripods": 4, "area": 0.1546, "rotation_deg": 62.2, "travel_px": 315.9, "video": "assets/gallery/bridge0.mp4", "poster": "assets/gallery/bridge0.webp", "icon": "assets/icon/bridge0.webp", "views": {"se3": "assets/gallery/bridge0.mp4", "input": "assets/input/bridge0.mp4", "combo_sparse": "assets/views/bridge0__combo_sparse.mp4", "grid": "assets/views/bridge0__grid.mp4", "orbit3d": "assets/views/bridge0__orbit3d.mp4", "pca": "assets/views/bridge0__pca.mp4", "se3_on_pca": "assets/views/bridge0__se3_on_pca.mp4", "tracks": "assets/views/bridge0__tracks.mp4", "tracks_world": "assets/views/bridge0__tracks_world.mp4", "cam": "assets/axis/bridge0__cam.mp4", "zup": "assets/axis/bridge0__zup.mp4", "zout": "assets/axis/bridge0__zout.mp4"}, "default_view": "se3"}};
+const VISER_BASE = "https://huggingface.co/datasets/Tian-Xia/mose3-viser/resolve/main";
+const VIEW_NOTES = {"input": "Input video.", "se3": "Predicted per-pixel SE(3), drawn over the moving foreground. The static background is left clear.", "combo_sparse": "Point tracks and SE(3) frames at the picked query points. Faded frames mark the preceding ten frames.", "tracks": "Predicted dense 3D point tracks, projected into the image.", "tracks_world": "The same world-space tracks seen from the reference camera: every frame is re-rendered from that one viewpoint, so the camera's own motion is removed and only what moves in the world moves on screen.", "pca": "Per-pixel rigidity embedding projected to RGB by PCA. No segmentation supervision is used in training.", "se3_on_pca": "SE(3) frames drawn over the rigidity embedding they were fitted from.", "orbit3d": "The same predictions rendered from a viewpoint outside the input camera."};
+const TEASERS = [{"label": "Dominoes falling", "note": ""}, {"label": "Paper map wind", "note": ""}, {"label": "Double stretch zebra", "note": "A plush toy pulled apart"}, {"label": "Single lift cloth", "note": ""}, {"label": "Butterfly", "note": ""}, {"label": "Indian sari woman dancing", "note": "A sari: no rigid part anywhere"}, {"label": "Scissors cutting paper", "note": ""}];
+const $ = s => document.querySelector(s);
+const press = (bar, el) => [...bar.children].forEach(x =>
+  x.setAttribute('aria-pressed', String(x === el)));
+
+/* ---- teaser carousel ---- */
+const car = $('#car');
+if (car) {
+  const slides = [...car.querySelectorAll('.slide')];
+  const dots = [...document.querySelectorAll('#cardots .dot')];
+  let cur = 0, timer = null, held = false;
+
+  const show = i => {
+    cur = (i + slides.length) % slides.length;
+    slides.forEach((s, k) => {
+      const v = s.querySelector('video');
+      if (k === cur) {
+        s.setAttribute('data-on', '1');
+        // preload="none" on every slide but the first keeps the page light; the
+        // browser only fetches a clip once it is about to be shown.
+        if (v.preload === 'none') { v.preload = 'auto'; v.load(); }
+        // From the first frame every time (user 2026-09-29: it opened mid-way,
+        // in the 3D part): a slide paused half-way must not resume there.
+        try { v.currentTime = 0; } catch (e) {}
+        v.play().catch(() => {});
+      } else { s.removeAttribute('data-on'); v.pause(); try { v.currentTime = 0; } catch (e) {} }
+    });
+    dots.forEach((d, k) => d.setAttribute('aria-pressed', String(k === cur)));
+    queue();
+  };
+  // Off screen the carousel pauses; back on screen it restarts the current
+  // slide from its first frame, so a reader always meets the query stage first.
+  new IntersectionObserver(es => es.forEach(e => {
+    const v = slides[cur].querySelector('video');
+    if (e.isIntersecting) { try { v.currentTime = 0; } catch (x) {} v.play().catch(() => {}); queue(); }
+    else { v.pause(); clearTimeout(timer); }
+  }), {threshold: 0.35}).observe(car);
+  const queue = () => {
+    clearTimeout(timer);
+    if (held) return;
+    const v = slides[cur].querySelector('video');
+    // Hold each clip for one full loop, so a slide is never cut mid-motion.
+    // The duration is unknown until the metadata arrives (the slides are
+    // preload="none"); the old 4 s fallback cut the 17 s teasers short
+    // (user 2026-10-01), so wait for it instead of guessing.
+    if (!(Number.isFinite(v.duration) && v.duration > 0)) {
+      v.addEventListener('loadedmetadata', queue, {once: true});
+      return;
+    }
+    timer = setTimeout(() => show(cur + 1), v.duration * 1000 + 150);
+  };
+  car.addEventListener('mouseenter', () => { held = true; clearTimeout(timer); });
+  car.addEventListener('mouseleave', () => { held = false; queue(); });
+  car.querySelector('.prev').onclick = () => show(cur - 1);
+  car.querySelector('.next').onclick = () => show(cur + 1);
+  dots.forEach(d => d.onclick = () => show(+d.dataset.i));
+  slides[0].querySelector('video').addEventListener('loadedmetadata', queue);
+  show(0);
+}
+
+/* ---- results grid: six clips per page, the view persists across pages ---- */
+const viewbar = $('#view'), rgrid = $('#rgrid');
+const ORDER = ["dycheck_iphone__spin", "pixabay_boss__pixabay_22602_woman_asian_dress_skirt", "teaser__bird2", "pixabay_boss__pixabay_12741_kettlebell_russian_swing", "videos_2__map2", "pexels_boss_themes__pexels_flowing_dress_wind_35920103", "cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206", "videos__butterfly_small", "dycheck_iphone__teddy", "pixabay_boss__pixabay_140011_woman_model_fashion", "pixabay_boss__pixabay_66636_horse_playground_toy", "pixabay_boss__pixabay_1687_swing_playground_kids", "butterfly", "pixabay_boss__pixabay_158147_girl_kid_swing_park", "pixabay_boss__pixabay_1610_legs_boots_baby_swing", "videos__tennis", "teaser__leaves", "pexels_boss_themes__pexels_rocking_horse_toy_7600583", "pixabay_boss__pixabay_2222_snowdrops_blooming", "pexels_deformable__pexels_blue_dress_spinning_park_15017751", "pexels_deformable__pexels_woman_dress_9347912", "pexels_deformable__pexels_men_folding_blanket_8979704", "pt_double_stretch_zebra", "pexels_deformable__pexels_plastic_bag_fluttering_field_37887006", "pt_single_lift_cloth", "pexels_deformable__pexels_paper_map_wind_7606344", "pt_weird_package", "pt_single_push_rope", "pt_single_lift_rope", "pt_double_stretch_sloth", "deformable2__sponge_squeezing_6872061", "pt_single_push_sloth", "pexels_deformable__pexels_fitting_room_dress_8388366", "pexels_deformable__pexels_girl_mother_making_bed_10554783", "collision__dominoes_falling_8102764", "articulated__scissors_cutting_paper_6977414", "camera_motion__orbit_around_statue_19527872", "epic_P01_12_pour_milk", "epic_P10_03_shake_pot", "px_hands_kneading_dough_6481505", "px_cutting_vegetables_closeup_7430567", "px_toy_car_moving_4106907", "px_hand_picking_up_cup_39173954", "px_hands_folding_paper_28405807", "px_spinning_top_4039956", "droid0", "agibot0", "bridge0"];
+const PER = 6;
+let view = viewbar.querySelector('[aria-pressed="true"]').dataset.v, page = 0;
+const pages = Math.max(1, Math.ceil(ORDER.length / PER));
+function renderGrid(){
+  const ids = ORDER.slice(page * PER, page * PER + PER);
+  rgrid.innerHTML = ids.map(id => {
+    const c = CLIPS[id], src = c.views[view] || c.views[c.default_view] || c.views.se3;
+    return src ? `<figure class="rcell"><video src="${src}" poster="${c.poster}" muted loop playsinline autoplay preload="metadata" title="${c.label}"></video></figure>`
+               : `<figure class="rcell na">not rendered</figure>`;
+  }).join('');
+  $('#rpage').textContent = `${page + 1} / ${pages}`;
+  [...viewbar.children].forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === view)));
+}
+viewbar.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  view = b.dataset.v; renderGrid();
+});
+$('#rprev').onclick = () => { page = (page - 1 + pages) % pages; renderGrid(); };
+$('#rnext').onclick = () => { page = (page + 1) % pages; renderGrid(); };
+renderGrid();
+
+/* ---- Art-Kubric picker ---- */
+const akp = $('#akplayer');
+if (akp) {
+  const AK = {"0001": {"scene": "0001", "frames": 40, "links": 154, "rigid_segments": 114, "video": "0001.mp4", "panel_aspect": 3.0}, "0002": {"scene": "0002", "frames": 40, "links": 170, "rigid_segments": 155, "video": "0002.mp4", "panel_aspect": 3.0}, "0003": {"scene": "0003", "frames": 40, "links": 117, "rigid_segments": 97, "video": "0003.mp4", "panel_aspect": 3.0}, "0004": {"scene": "0004", "frames": 40, "links": 92, "rigid_segments": 78, "video": "0004.mp4", "panel_aspect": 3.0}, "0005": {"scene": "0005", "frames": 40, "links": 125, "rigid_segments": 108, "video": "0005.mp4", "panel_aspect": 3.0}, "0006": {"scene": "0006", "frames": 40, "links": 134, "rigid_segments": 123, "video": "0006.mp4", "panel_aspect": 3.0}, "0007": {"scene": "0007", "frames": 40, "links": 121, "rigid_segments": 102, "video": "0007.mp4", "panel_aspect": 3.0}, "0008": {"scene": "0008", "frames": 40, "links": 67, "rigid_segments": 57, "video": "0008.mp4", "panel_aspect": 3.0}, "0009": {"scene": "0009", "frames": 40, "links": 36, "rigid_segments": 30, "video": "0009.mp4", "panel_aspect": 3.0}};
+  const grid = akp.closest('.panel').querySelector('.thumb-grid');
+  const showAk = sc => {
+    const r = AK[sc];
+    akp.src = `assets/artkubric/${sc}.mp4`;
+    akp.play().catch(() => {});
+    [...grid.children].forEach(t =>
+      t.setAttribute('aria-pressed', String(t.dataset.s === sc)));
+  };
+  grid.addEventListener('click', e => {
+    const b = e.target.closest('.thumb'); if (b) showAk(b.dataset.s);
+  });
+  showAk(grid.firstElementChild.dataset.s);
+}
+
+/* ---- embedding gallery: play only what is on screen ---- */
+/* Six looping videos decoding at once stutters on a laptop, and the ones
+   scrolled past are not being looked at anyway. */
+{
+  const rvs = document.querySelectorAll('.emcell .rv');
+  if (rvs.length) {
+    const io = new IntersectionObserver(es => es.forEach(e => {
+      const vids = e.target.querySelectorAll('video');
+      if (e.isIntersecting) vids.forEach(v => { v.preload = 'auto'; v.play().catch(() => {}); });
+      else vids.forEach(v => v.pause());
+    }), {rootMargin: '100px'});
+    rvs.forEach(rv => {
+      io.observe(rv);
+      const base = rv.querySelector('.base'), top = rv.querySelector('.top'), line = rv.querySelector('.rvline');
+      // one clock: the embedding follows the input video
+      base.addEventListener('timeupdate', () => {
+        if (Math.abs(top.currentTime - base.currentTime) > 0.08) top.currentTime = base.currentTime;
+      });
+      const set = x => {
+        const r = rv.getBoundingClientRect();
+        const p = Math.max(0, Math.min(100, (x - r.left) / r.width * 100));
+        top.style.clipPath = `inset(0 0 0 ${p}%)`; line.style.left = p + '%';
+      };
+      let down = false;
+      rv.addEventListener('pointerdown', e => { down = true; rv.setPointerCapture(e.pointerId); set(e.clientX); });
+      rv.addEventListener('pointermove', e => { if (down) set(e.clientX); });
+      rv.addEventListener('pointerup', () => { down = false; });
+      rv.addEventListener('pointercancel', () => { down = false; });
+    });
+  }
+}
+
+/* ---- viser ---- */
+const vclip = $('#vclip');
+if (vclip) {
+  const cams = {};
+  let c3 = vclip.querySelector('[aria-pressed="true"]').dataset.c;
+  // camera.json already stores the query-parameter names as strings, so the keys
+  // pass through verbatim. A missing file just means the client's default view.
+  async function camQuery(c){
+    if (cams[c] === undefined) {
+      try {
+        const r = await fetch(`${VISER_BASE}/${c}/camera.json?v=${Date.now()}`);
+        const j = r.ok ? await r.json() : null;
+        cams[c] = j ? `&initialCameraPosition=${j.initialCameraPosition}`
+                    + `&initialCameraLookAt=${j.initialCameraLookAt}`
+                    + `&initialCameraUp=${j.initialCameraUp}&fov=${j.fov}` : '';
+      } catch (e) { cams[c] = ''; }
+    }
+    return cams[c];
+  }
+  async function show3(){
+    // playbackPath resolves against the IFRAME document (viser/viser-client/),
+    // hence the ../ -- and &v= cache-busts, or a re-baked .viser serves stale.
+    // One recording per clip now: switching layers happens inside the viewer and
+    // costs no fetch, so the iframe reloads only when the clip changes.
+    const cam = await camQuery(c3);
+    $('#viser').src = `viser/viser-client/index.html`
+      + `?playbackPath=${VISER_BASE === 'viser' ? '..' : VISER_BASE}/${c3}/all.viser${cam}&v=${Date.now()}`;
+    // The frames the model saw, at the recording's own rate (both 1/fps per
+    // frame), so time in one is time in the other.
+    vs.src = `${VISER_BASE}/${c3}/video.mp4`;
+    $('#vpip').hidden = !$('#pipbox').checked;
+    vs.onerror = () => { $('#vpip').hidden = true; };
+    P.reset();
+  }
+  const vs = $('#vsync');
+  $('#pipbox').addEventListener('change', e => { $('#vpip').hidden = !e.target.checked; });
+  // The player. The page owns the clock; each frame it seeks the static viser
+  // player through the patched client's API (which also stops the player's own
+  // timer) and keeps the <video> on the same time. Until the client is ready
+  // the bar just waits, and a clip change resets it.
+  const P = (function () {
+    const play = $('#pplay'), sl = $('#pslider'), lab = $('#ptime');
+    let t = 0, dur = 0, sent = -1, playing = true, drag = false, last = performance.now();
+    const api = () => {
+      try {
+        const w = $('#viser').contentWindow;
+        return (w && w.__viserPlayback && w.__viserPlayback.ready()) ? w.__viserPlayback : null;
+      } catch (e) { return null; }
+    };
+    function tick(now) {
+      try { step(now); } catch (e) { window.__perr = String(e && e.stack || e); }
+      requestAnimationFrame(tick);
+    }
+    function step(now) {
+      const dt = Math.min((now - last) / 1000, 0.1); last = now;
+      const a = api();
+      if (a) {
+        if (!dur) { dur = a.duration(); if (dur) { sl.max = dur.toFixed(2); a.hideBar(true); } }
+        if (dur) {
+          if (playing && !drag) { t += dt; if (t >= dur) t -= dur; }
+          if (t !== sent) { a.seek(t); sent = t; }
+          if (vs.readyState >= 1) {
+            if (playing && !drag) {
+              // The clip's last frame: the recording holds it for one frame
+              // interval, but the <video> has already reached its end. Calling
+              // play() on an ended element restarts it from 0, which showed as
+              // a jump in the picture-in-picture at the end of every loop
+              // (user 2026-10-01, woman dress). Hold the last frame instead;
+              // the wrap below seeks to 0 and starts playback again.
+              const atEnd = vs.ended || (vs.duration && t >= vs.duration - 0.06);
+              if (atEnd) {
+                if (!vs.paused) vs.pause();
+              } else {
+                if (Math.abs(vs.currentTime - t) > 0.12) vs.currentTime = t;
+                if (vs.paused) vs.play().catch(() => {});
+              }
+            } else {
+              if (!vs.paused) vs.pause();
+              if (Math.abs(vs.currentTime - t) > 0.02) vs.currentTime = t;
+            }
+          }
+          if (!drag) sl.value = t.toFixed(2);
+          lab.textContent = `${t.toFixed(1)} / ${dur.toFixed(1)} s`;
+        }
+      }
+      play.innerHTML = playing ? '&#10074;&#10074;' : '&#9654;';
+    }
+    play.addEventListener('click', () => { playing = !playing; });
+    sl.addEventListener('input', () => { drag = true; t = parseFloat(sl.value); });
+    sl.addEventListener('change', () => { drag = false; });
+    const toggle = () => { playing = !playing; };
+    addEventListener('keydown', e => {
+      if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); toggle(); }
+    });
+    addEventListener('message', e => { if (e.data && e.data.type === 'viserToggle') toggle(); });
+    requestAnimationFrame(tick);
+    return { reset() { t = 0; dur = 0; sent = -1; } };
+  })();
+
+  // The recording carries every layer; the patched client re-applies whatever we
+  // post on each frame. Posting on load and on every change is enough -- the
+  // client also announces itself, which covers the case where it finishes
+  // booting after we have already sent the initial state.
+  const box = $('#layerbox');
+  const HIDDEN = ["/Rigid_parts", "/Per_part_SE3"];
+  const layerState = () => Object.fromEntries(
+    [...box.querySelectorAll('input[data-layer]')].map(i => [i.dataset.layer, i.checked])
+    .concat(HIDDEN.map(l => [l, false])));
+  const pushLayers = () => {
+    const f = $('#viser');
+    if (f && f.contentWindow) {
+      f.contentWindow.postMessage({type: 'viserLayers', layers: layerState()}, '*');
+    }
+  };
+  box.addEventListener('change', pushLayers);
+  addEventListener('message', e => {
+    if (e.data && e.data.type === 'viserLayersReady') pushLayers();
+  });
+  $('#viser').addEventListener('load', pushLayers);
+
+  vclip.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || b.dataset.c === c3) return;
+    c3 = b.dataset.c; press(vclip, b); show3();
+  });
+  show3();
+}
+</script>
+</body></html>
