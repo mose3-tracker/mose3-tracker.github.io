@@ -85,7 +85,7 @@ h1 .m{color:var(--axis-z)}
 .links a svg{opacity:.9}
 .links a.off{background:transparent;color:var(--faint);border-color:var(--line);
   pointer-events:none}
-.tldr{margin:28px auto 0;max-width:64ch;font-size:17px;line-height:1.55;color:var(--dim);
+.tldr{margin:28px auto 0;max-width:78ch;font-size:17px;line-height:1.55;color:var(--dim);
   text-wrap:pretty}
 .tldr .k{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;
   color:var(--faint);margin-right:9px}
@@ -98,6 +98,11 @@ h1 .m{color:var(--axis-z)}
 .slide{position:absolute;inset:0;margin:0;opacity:0;transition:opacity .45s ease;
   pointer-events:none}
 .slide[data-on]{opacity:1}
+.slide{cursor:pointer}
+.slide.idle::after{content:"";position:absolute;left:50%;top:50%;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;
+  background:rgba(12,14,20,.62) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="white" d="M8 5v14l11-7z"/></svg>') center/34px no-repeat;
+  box-shadow:0 6px 24px rgba(0,0,0,.35);transition:transform .15s ease}
+.slide.idle:hover::after{transform:scale(1.06)}
 .slide video{width:100%;height:100%;object-fit:contain;display:block}
 .nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;
   border-radius:50%;border:1px solid rgba(255,255,255,.28);background:rgba(10,12,16,.5);
@@ -140,9 +145,12 @@ h1 .m{color:var(--axis-z)}
   width:fit-content;max-width:100%;min-height:200px;margin:0 auto;
   display:grid;place-items:center}
 /* Three square panels side by side, so 16:9 would be mostly black bar. */
-.player.ak3{width:100%;aspect-ratio:3/1}
+/* the box takes the video's own aspect (inline, from the manifest) and has no
+   background: a mismatch used to show as black bars around the video (user
+   2026-10-03: "黑边是网页渲染器的事") */
+.player.ak3{width:100%;max-width:560px;margin:0 auto;background:transparent;min-height:0}
 .player video{max-width:100%;max-height:76vh;width:auto;height:auto;display:block}
-.player.ak3 video{width:100%;height:100%;object-fit:contain}
+.player.ak3 video{width:100%;height:100%;max-height:none;object-fit:contain}   /* no 76vh cap: it left a gap above the square video */
 .vnote{font-family:var(--mono);font-size:12px;color:var(--faint);text-align:center;
   margin:12px auto 0;max-width:68ch;min-height:2.6em;line-height:1.6}
 .rgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -189,7 +197,18 @@ h1 .m{color:var(--axis-z)}
    patched client exposes (viser_client_patch.js), and keeps the <video> on the
    same time. The video sits inside the viewer, top-left, like D4RT's frame
    overlay; the Layers box has a switch to hide it. */
-.viewer{width:100%;aspect-ratio:16/10;min-height:560px;background:#000;border-radius:var(--radius);
+/* the 3D panel sits narrower than the text column (user 2026-10-04: "整个交互的框窄一点") */
+#explore .panel,.v3d .panel{max-width:960px;margin-left:auto;margin-right:auto}
+#artkubric .panel{max-width:600px;margin-left:auto;margin-right:auto;padding:14px}   /* 5 x 104 + 4 x 10 + paddings: one row of five thumbnails */   /* hugs the grid video (user 2026-10-04: "窄点", then "整个展示器都小点") */
+/* the 2D panel: at least the text column + 12px a side, and just wide enough
+   for the view tabs to sit on one line (user 2026-10-04: "把 view 刚好塞下") */
+#browse .wrap,.v2d{display:flex;flex-direction:column;align-items:center}
+#browse .wrap>*,.v2d>*{width:100%}
+#browse .panel,.v2d .panel{width:fit-content;min-width:calc(100% + 24px);max-width:none;margin:0;padding:18px 14px}
+#browse .seg,.v2d .seg{flex-wrap:nowrap}
+#browse .seg button,.v2d .seg button{white-space:nowrap;flex:none}
+@media (max-width:1200px){#browse .panel,.v2d .panel{width:100%;min-width:0}#browse .seg,.v2d .seg{flex-wrap:wrap}}   /* 8 x 104 + 7 x 10 + paddings = one row of eight thumbnails */
+.viewer{width:100%;aspect-ratio:16/10;min-height:480px;background:#000;border-radius:var(--radius);
   overflow:hidden;border:1px solid var(--line)}
 .viewer iframe{width:100%;height:100%;border:0;display:block}
 .pip{position:absolute;top:12px;left:12px;z-index:5;width:26%;min-width:150px;max-width:300px;
@@ -284,6 +303,12 @@ h1 .m{color:var(--axis-z)}
 
 /* ---- benchmark charts ---- */
 .charts{display:flex;flex-direction:column;gap:18px}
+/* bars grow from the baseline when the chart scrolls into view (advisor 2026-10-03) */
+.bc path{transform-box:fill-box;transform-origin:50% 100%;transform:scaleY(0);transition:transform .7s cubic-bezier(.2,.7,.2,1)}
+.bc .bcv{opacity:0;transition:opacity .4s ease .55s}
+.charts.grown .bc path{transform:scaleY(1)}
+.charts.grown .bc .bcv{opacity:1}
+@media (prefers-reduced-motion:reduce){.bc path{transform:none;transition:none}.bc .bcv{opacity:1;transition:none}}
 .legend{display:flex;gap:14px 20px;flex-wrap:wrap;justify-content:center;font-size:13px;color:var(--dim)}
 .legend .lg{display:inline-flex;align-items:center;gap:7px}
 .legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
@@ -311,7 +336,7 @@ table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
 th,td{padding:7px 6px;text-align:center;border-bottom:1px solid var(--line)}
 /* the SE(3) table has 17 columns: give this section a wider column than the prose */
 #results .wrap{max-width:1160px}
-#browse .wrap{max-width:1380px}            /* the 2x3 results grid gets more room */
+#browse .wrap{max-width:var(--maxw)}       /* same column as the embeddings; the panel pokes out 12px each side */
 #results .tscroll{border:0;border-radius:0}
 #results .caption{max-width:120ch;font-size:14px}
 #compare .akgrid{max-width:680px;margin:0 auto}   /* the two-panel videos, a bit smaller than full width */

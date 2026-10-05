@@ -1,0 +1,431 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<title>MoSE3 &middot; more embeddings</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#fff; --surface:#f7f7f9; --surface-2:#ececef; --line:#e3e3e6;
+  --text:#15171a; --dim:#5b6169; --faint:#8a9099;
+  --axis-x:#d6473a; --axis-y:#2e9c5b; --axis-z:#3b63c7;
+  --maxw:1120px; --measure:760px; --radius:10px;
+  --display:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111316; --surface:#181a1e; --surface-2:#22252a; --line:#2a2e34;
+  --text:#eceef1; --dim:#a2a9b2; --faint:#787f88;
+  --axis-x:#f0685a; --axis-y:#48c179; --axis-z:#6e91e8;
+}}
+:root[data-theme="dark"]{
+  --bg:#111316; --surface:#181a1e; --surface-2:#22252a; --line:#2a2e34;
+  --text:#eceef1; --dim:#a2a9b2; --faint:#787f88;
+  --axis-x:#f0685a; --axis-y:#48c179; --axis-z:#6e91e8;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:400 16.5px/1.65 var(--body);-webkit-font-smoothing:antialiased}
+img,video{max-width:100%}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* Every band is centred; prose is narrowed by --measure, not by the wrapper,
+   so headings and media stay on one axis down the whole page. */
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+.measure{max-width:var(--measure);margin-left:auto;margin-right:auto}
+section{padding:62px 0}
+section + section{border-top:1px solid var(--line)}
+h2{font:600 32px/1.2 var(--display);letter-spacing:-.02em;margin:0 0 12px;text-align:center}
+h2::before{content:"";display:block;width:34px;height:3px;border-radius:2px;margin:0 auto 18px;
+  background:linear-gradient(90deg,var(--axis-x),var(--axis-y),var(--axis-z))}
+.lede{color:var(--dim);text-align:center;margin:0 auto 30px;max-width:var(--measure);font-size:16px}
+h3{font:600 17px/1.3 var(--display);margin:34px 0 12px;text-align:center}
+.prose{text-align:left;color:var(--text);font-size:17.5px;line-height:1.7}
+.prose b{color:var(--axis-z);font-weight:600}
+
+/* ---- sticky nav ---- */
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+nav.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 86%,transparent);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav.top .wrap{display:flex;align-items:center;gap:18px;height:54px}
+nav.top .brand{font:700 18px/1 var(--display);letter-spacing:-.02em;color:var(--text);text-decoration:none}
+nav.top .navlinks{display:flex;gap:2px;margin-left:auto;overflow-x:auto;scrollbar-width:none}
+nav.top .navlinks a{font:500 13.5px/1 var(--body);color:var(--dim);text-decoration:none;
+  padding:8px 11px;border-radius:7px;white-space:nowrap;transition:background .15s,color .15s}
+nav.top .navlinks a:hover{background:var(--surface-2);color:var(--text)}
+nav.top .navpaper{display:inline-flex;align-items:center;gap:6px;font:500 13px/1 var(--body);
+  color:var(--bg);background:var(--text);padding:8px 13px;border-radius:999px;text-decoration:none;flex:none}
+nav.top .navpaper:hover{background:var(--axis-z)}
+@media (max-width:760px){nav.top .navpaper{display:none}}
+
+/* ---- hero ---- */
+header{padding:78px 0 52px;text-align:center;position:relative;
+  background:
+    radial-gradient(55% 60% at 12% 0%,rgba(59,99,199,.14),transparent 70%),
+    radial-gradient(45% 55% at 88% 8%,rgba(214,71,58,.10),transparent 70%),
+    radial-gradient(40% 40% at 50% 100%,rgba(46,156,91,.08),transparent 70%)}
+.venue{font:600 18px/1 var(--display);letter-spacing:.01em;color:var(--axis-x);margin:2px auto 24px}
+.venue-old{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--faint);margin:0 0 16px}
+h1{font:700 clamp(34px,5.4vw,56px)/1.12 var(--display);letter-spacing:-.03em;
+  margin:0 auto 22px;max-width:24ch;text-wrap:balance}
+h1 .m{color:var(--axis-z)}
+.authors{font-size:21px;margin:0 auto 8px;max-width:80ch}
+.authors .au{white-space:nowrap}
+.authors a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--line)}
+.authors sup{color:var(--faint);font-size:.72em}
+.affil{color:var(--dim);font-size:18px;margin:0 auto 6px}
+.affil sup{color:var(--faint);font-size:.72em}
+.equal{color:var(--faint);font-size:13px;margin:0 auto 10px}
+.links{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.links a{display:inline-flex;align-items:center;gap:8px;background:var(--text);color:var(--bg);
+  text-decoration:none;padding:11px 22px;border-radius:999px;font:500 14.5px/1 var(--body);
+  border:1px solid var(--text);box-shadow:0 6px 18px -10px rgba(0,0,0,.5);
+  transition:background .15s,border-color .15s,color .15s,transform .15s}
+.links a:hover{background:var(--axis-z);border-color:var(--axis-z);color:#fff;transform:translateY(-1px)}
+.links a svg{opacity:.9}
+.links a.off{background:transparent;color:var(--faint);border-color:var(--line);
+  pointer-events:none}
+.tldr{margin:28px auto 0;max-width:78ch;font-size:17px;line-height:1.55;color:var(--dim);
+  text-wrap:pretty}
+.tldr .k{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--faint);margin-right:9px}
+.tldr b{color:var(--text);font-weight:600}
+
+/* ---- teaser carousel ---- */
+.carousel{position:relative;border-radius:14px;overflow:hidden;
+  border:1px solid var(--line);background:#000;box-shadow:0 24px 60px -30px rgba(0,0,0,.45)}
+.stage{position:relative;aspect-ratio:16/9}
+.slide{position:absolute;inset:0;margin:0;opacity:0;transition:opacity .45s ease;
+  pointer-events:none}
+.slide[data-on]{opacity:1}
+.slide{cursor:pointer}
+.slide.idle::after{content:"";position:absolute;left:50%;top:50%;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;
+  background:rgba(12,14,20,.62) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="white" d="M8 5v14l11-7z"/></svg>') center/34px no-repeat;
+  box-shadow:0 6px 24px rgba(0,0,0,.35);transition:transform .15s ease}
+.slide.idle:hover::after{transform:scale(1.06)}
+.slide video{width:100%;height:100%;object-fit:contain;display:block}
+.nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;
+  border-radius:50%;border:1px solid rgba(255,255,255,.28);background:rgba(10,12,16,.5);
+  color:#fff;font:300 22px/1 var(--body);cursor:pointer;display:grid;place-items:center;
+  opacity:0;transition:opacity .18s,background .18s}
+.carousel:hover .nav,.nav:focus-visible{opacity:1}
+.nav:hover{background:rgba(10,12,16,.78)}
+.nav.prev{left:12px} .nav.next{right:12px}
+.carthumbs{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+.dot{width:96px;height:58px;padding:0;border-radius:8px;border:2px solid transparent;cursor:pointer;
+  background:#000;overflow:hidden;opacity:.7;transition:opacity .18s,border-color .18s,transform .18s}
+.dot img{width:100%;height:100%;object-fit:cover;display:block}
+.dot:hover{opacity:1}
+.dot[aria-pressed="true"]{border-color:var(--axis-z);opacity:1;transform:translateY(-2px)}
+.allteasers{text-align:center;margin:12px 0 0;font-size:14px}
+.allteasers a{color:var(--dim)}
+.caption{font-size:14px;color:var(--faint);margin:14px auto 0;text-align:center;
+  max-width:110ch;line-height:1.6}
+
+/* ---- clip browser (one player, a view switcher, a thumbnail grid) ---- */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px}
+.segwrap{display:flex;justify-content:center}
+.seg{display:inline-flex;flex-wrap:wrap;justify-content:center;border:1px solid var(--line);border-radius:9px;padding:3px;
+  margin-bottom:18px;background:var(--bg);flex-wrap:wrap;justify-content:center}
+.seg button{font-family:var(--mono);font-size:12.5px;letter-spacing:.02em;padding:8px 15px;
+  border-radius:6px;border:0;background:transparent;color:var(--dim);cursor:pointer;
+  transition:background .15s,color .15s}
+.seg button:hover:not(:disabled){color:var(--text)}
+.seg button[aria-pressed="true"]{background:var(--surface-2);color:var(--text)}
+.seg button:disabled{color:var(--line);cursor:not-allowed}
+/* The box takes the video's shape rather than the other way round.
+   It used to be a fixed 16:9 with `.player video{height:100%}`, but the box's
+   own height came from aspect-ratio, so that 100% resolved against an auto
+   height and the video laid itself out at its intrinsic ratio -- taller than
+   the box for a portrait clip, with object-fit then having nothing to do and
+   overflow:hidden cutting the bottom off. The teaser carousel escaped this
+   because its slides are position:absolute;inset:0, which is a definite height.
+   Sizing from the video removes the failure mode instead of patching it. */
+.player{position:relative;border-radius:var(--radius);overflow:hidden;background:#000;
+  width:fit-content;max-width:100%;min-height:200px;margin:0 auto;
+  display:grid;place-items:center}
+/* Three square panels side by side, so 16:9 would be mostly black bar. */
+/* the box takes the video's own aspect (inline, from the manifest) and has no
+   background: a mismatch used to show as black bars around the video (user
+   2026-10-03: "黑边是网页渲染器的事") */
+.player.ak3{width:100%;max-width:560px;margin:0 auto;background:transparent;min-height:0}
+.player video{max-width:100%;max-height:76vh;width:auto;height:auto;display:block}
+.player.ak3 video{width:100%;height:100%;max-height:none;object-fit:contain}   /* no 76vh cap: it left a gap above the square video */
+.vnote{font-family:var(--mono);font-size:12px;color:var(--faint);text-align:center;
+  margin:12px auto 0;max-width:68ch;min-height:2.6em;line-height:1.6}
+.rgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.rcell{margin:0;aspect-ratio:16/10;background:#000;border-radius:10px;overflow:hidden;position:relative}
+.rcell video{width:100%;height:100%;object-fit:contain;display:block}
+.rcell.na{display:grid;place-items:center;color:var(--faint);font-size:13px}
+.pager{display:flex;gap:14px;justify-content:center;align-items:center;margin-top:14px}
+.pager button{width:36px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--bg);
+  color:var(--text);font-size:18px;cursor:pointer}
+.pager button:hover{border-color:var(--dim)}
+.pager span{font-size:12.5px;color:var(--dim);min-width:80px;text-align:center}
+@media (max-width:900px){.rgrid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.rgrid{grid-template-columns:1fr}}
+.thumb-grid{display:grid;grid-template-columns:repeat(auto-fill,104px);justify-content:center;
+  gap:10px;margin-top:20px}
+/* Two rows of thumbnails, the rest by scrolling (user 2026-09-29). The grid keeps
+   its own margin-top, so the box's max-height is 20 + 2*104 + 10 + a little room
+   for the selected tile's border/lift. */
+.thumb-scroll{max-height:246px;overflow-y:auto;overscroll-behavior:contain;padding:0 4px 6px;
+  border-radius:10px;
+  -webkit-mask-image:linear-gradient(#000 calc(100% - 26px),transparent);
+  mask-image:linear-gradient(#000 calc(100% - 26px),transparent)}
+.thumb-scroll .thumb-grid{margin-top:20px}
+.thumb-scroll::-webkit-scrollbar{width:8px}
+.thumb-scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+.thumb{position:relative;border-radius:8px;overflow:hidden;cursor:pointer;padding:0;
+  border:2px solid transparent;aspect-ratio:1/1;background:var(--surface-2);
+  transition:border-color .15s,transform .15s}
+.thumb img{width:100%;height:100%;object-fit:contain;opacity:.88;transition:opacity .15s;display:block}
+.thumb:hover{transform:translateY(-2px)}
+.thumb:hover img,.thumb[aria-pressed="true"] img{opacity:1}
+.thumb[aria-pressed="true"]{border-color:var(--axis-z)}
+.thumb-label{position:absolute;bottom:0;left:0;right:0;font-size:10.5px;font-weight:500;
+  color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.78));padding:12px 4px 3px;
+  text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.meta{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-top:16px;
+  font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+.meta i{font-style:normal;color:var(--dim)}
+
+
+/* ---- viser ---- */
+/* One bar drives both the 3D scene and the input video, D4RT-style: the page
+   owns the clock, seeks the static player every frame through the API the
+   patched client exposes (viser_client_patch.js), and keeps the <video> on the
+   same time. The video sits inside the viewer, top-left, like D4RT's frame
+   overlay; the Layers box has a switch to hide it. */
+/* the 3D panel sits narrower than the text column (user 2026-10-04: "整个交互的框窄一点") */
+#explore .panel,.v3d .panel{max-width:960px;margin-left:auto;margin-right:auto}
+#artkubric .panel{max-width:600px;margin-left:auto;margin-right:auto;padding:14px}   /* 5 x 104 + 4 x 10 + paddings: one row of five thumbnails */   /* hugs the grid video (user 2026-10-04: "窄点", then "整个展示器都小点") */
+/* the 2D panel: at least the text column + 12px a side, and just wide enough
+   for the view tabs to sit on one line (user 2026-10-04: "把 view 刚好塞下") */
+#browse .wrap,.v2d{display:flex;flex-direction:column;align-items:center}
+#browse .wrap>*,.v2d>*{width:100%}
+#browse .panel,.v2d .panel{width:fit-content;min-width:calc(100% + 24px);max-width:none;margin:0;padding:18px 14px}
+#browse .seg,.v2d .seg{flex-wrap:nowrap}
+#browse .seg button,.v2d .seg button{white-space:nowrap;flex:none}
+@media (max-width:1200px){#browse .panel,.v2d .panel{width:100%;min-width:0}#browse .seg,.v2d .seg{flex-wrap:wrap}}   /* 8 x 104 + 7 x 10 + paddings = one row of eight thumbnails */
+.viewer{width:100%;aspect-ratio:16/10;min-height:480px;background:#000;border-radius:var(--radius);
+  overflow:hidden;border:1px solid var(--line)}
+.viewer iframe{width:100%;height:100%;border:0;display:block}
+.pip{position:absolute;top:12px;left:12px;z-index:5;width:26%;min-width:150px;max-width:300px;
+  border-radius:8px;overflow:hidden;background:#000;border:1px solid rgba(255,255,255,.4);
+  box-shadow:0 6px 22px -8px rgba(0,0,0,.7)}
+.pip video{width:100%;display:block}
+.pip[hidden]{display:none}
+/* The bar floats inside the viewer along the bottom edge, like D4RT's
+   timeline, in the same translucent style as the Layers box. */
+.pbar{position:absolute;left:50%;transform:translateX(-50%);width:min(56%,540px);bottom:12px;
+  z-index:5;display:flex;align-items:center;
+  gap:12px;padding:7px 12px;border-radius:9px;background:rgba(252,252,253,.93);
+  backdrop-filter:blur(8px);border:1px solid rgba(20,22,30,.12);
+  box-shadow:0 6px 22px -8px rgba(0,0,0,.45)}
+.pbar button{width:32px;height:28px;border-radius:7px;border:1px solid rgba(20,22,30,.16);
+  background:#fff;color:#2b2f38;font-size:12px;cursor:pointer;flex:none}
+.pbar button:hover{border-color:#8a9099}
+.pbar input[type=range]{flex:1;accent-color:#3b63c7;min-width:0}
+.pbar .ptime{font:400 12px/1 var(--mono);color:#5b6169;min-width:92px;text-align:right;
+  font-variant-numeric:tabular-nums}
+
+/* ---- runtime badges on the comparison panels ---- */
+.cmpwrap{position:relative}
+.cmpwrap .rt{position:absolute;bottom:5%;display:inline-flex;align-items:center;gap:6px;
+  font:600 clamp(12px,1.5vw,16px)/1 var(--body);color:#fff;background:rgba(0,0,0,.66);
+  padding:7px 11px;border-radius:8px;backdrop-filter:blur(3px);pointer-events:none}
+.cmpwrap .rt i{font-style:normal;font-weight:400;opacity:.85;font-size:.85em}
+.cmpwrap .rt.l{left:1.6%} .cmpwrap .rt.r{left:51.4%}
+/* ---- runtime cards (comparison) ---- */
+.rt{display:grid;gap:14px;max-width:980px;margin:0 auto}
+.rtrow{display:grid;grid-template-columns:120px 1fr auto 1fr;gap:12px 14px;align-items:stretch}
+.rtbars{grid-column:2/5;display:grid;gap:6px}
+.rtbar{height:22px;border-radius:5px;position:relative;min-width:6px}
+.rtbar.pp{background:color-mix(in srgb,var(--axis-x) 55%,var(--bg))}
+.rtbar.ours{background:var(--axis-y)}
+.rtbar span{position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:8px;
+  font:600 12px var(--mono);color:var(--dim);white-space:nowrap}
+.rtbar.pp span{left:auto;right:10px;margin:0;color:#fff}
+.rtk{display:flex;align-items:center;gap:8px}
+.rtcard.pp .rtk{color:var(--axis-x)} .rtcard.ours .rtk{color:var(--axis-y)}
+.rtx small{display:block;font:600 13px var(--body);letter-spacing:.04em;text-transform:uppercase;text-align:center}
+.rtclip{align-self:center;font:600 16px var(--display)}
+.rtcard{border-radius:12px;padding:16px 18px;border:1px solid var(--line);background:var(--surface)}
+.rtcard.ours{background:color-mix(in srgb,var(--axis-y) 12%,var(--bg));border-color:color-mix(in srgb,var(--axis-y) 45%,var(--line))}
+.rtcard.pp{background:color-mix(in srgb,var(--axis-x) 8%,var(--bg))}
+.rtk{font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.rtv{font:700 40px/1.05 var(--display);letter-spacing:-.02em}
+.rtcard.ours .rtv{color:var(--axis-y)} .rtcard.pp .rtv{color:var(--axis-x)}
+.rts{font-size:12px;color:var(--faint);font-family:var(--body);font-weight:400}
+.rtx{align-self:center;font:700 22px var(--display);color:var(--axis-y);white-space:nowrap;padding:0 4px}
+@media (max-width:760px){.rtrow{grid-template-columns:1fr}.rtclip{text-align:center}.rtx{text-align:center}}
+
+/* ---- Art-Kubric ---- */
+.akgrid{display:grid;gap:16px;grid-template-columns:1fr}
+.akrow{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;
+  overflow:hidden}
+.akrow video{width:100%;display:block;background:#000}
+.dcap{font-size:13.5px;color:var(--dim);text-align:center;padding:10px 12px}
+.dcap i{font-style:normal;color:var(--dim)}
+
+/* ---- embedding gallery ---- */
+/* Three per row is the comparison-page rule the advisor set; equal-size tiles
+   so no clip reads as the important one. */
+.emgrid{display:grid;gap:14px;grid-template-columns:repeat(3,1fr)}
+.emcell{margin:0;background:var(--surface);border:1px solid var(--line);
+  border-radius:10px;overflow:hidden;transition:transform .15s,box-shadow .15s}
+.emcell:hover,.akrow:hover{transform:translateY(-2px);box-shadow:0 14px 30px -18px rgba(0,0,0,.45)}
+.emcell video{width:100%;display:block;background:#000;aspect-ratio:16/10;object-fit:cover}
+/* sliding reveal: the embedding is clipped from the right, the input shows through */
+.rv{position:relative;aspect-ratio:16/10;background:#000;overflow:hidden;cursor:ew-resize;
+  touch-action:none;user-select:none}
+.rv video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;aspect-ratio:auto}
+.rv .top{clip-path:inset(0 0 0 50%)}     /* embedding on the right of the divider, input on the left */
+.rvline{position:absolute;top:0;bottom:0;left:50%;width:2px;margin-left:-1px;background:#fff;
+  box-shadow:0 0 0 1px rgba(0,0,0,.35);pointer-events:none}
+.rvknob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px;
+  border-radius:50%;background:#fff;color:#15171a;display:grid;place-items:center;font-size:16px;
+  box-shadow:0 2px 10px rgba(0,0,0,.45)}
+.rvtag{position:absolute;bottom:8px;font:600 11px/1 var(--mono);padding:5px 8px;border-radius:5px;
+  background:rgba(0,0,0,.6);color:#fff;pointer-events:none;letter-spacing:.03em}
+.rvtag.l{left:8px} .rvtag.r{right:8px}
+.emcell video.fit{object-fit:contain;background:#0b0c0f}
+.emcell figcaption{font-size:13px;color:var(--dim);padding:9px 12px;text-align:center}
+.emcell figcaption b{color:var(--text);font-weight:600}
+@media (max-width:900px){.emgrid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.emgrid{grid-template-columns:1fr}}
+
+/* ---- figures ---- */
+.figbox{border:1px solid var(--line);border-radius:14px;padding:20px;
+  background:var(--surface);text-align:center;box-shadow:0 18px 40px -30px rgba(0,0,0,.35)}
+.figbox img{border-radius:5px}
+
+/* ---- benchmark charts ---- */
+.charts{display:flex;flex-direction:column;gap:18px}
+/* bars grow from the baseline when the chart scrolls into view (advisor 2026-10-03) */
+.bc path{transform-box:fill-box;transform-origin:50% 100%;transform:scaleY(0);transition:transform .7s cubic-bezier(.2,.7,.2,1)}
+.bc .bcv{opacity:0;transition:opacity .4s ease .55s}
+.charts.grown .bc path{transform:scaleY(1)}
+.charts.grown .bc .bcv{opacity:1}
+@media (prefers-reduced-motion:reduce){.bc path{transform:none;transition:none}.bc .bcv{opacity:1;transition:none}}
+.legend{display:flex;gap:14px 20px;flex-wrap:wrap;justify-content:center;font-size:13px;color:var(--dim)}
+.legend .lg{display:inline-flex;align-items:center;gap:7px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.brow{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px 6px}
+.brow h4{margin:0 0 4px;font:600 14px/1.3 var(--display);color:var(--text)}
+.bcells{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}
+.bcell{flex:1 1 180px;max-width:240px}
+.bc{width:100%;height:auto;display:block}
+.bct{font:500 12px var(--body);fill:var(--text)}
+.bcv{font:500 10.5px var(--mono);fill:var(--text)}
+.bcna{font:400 11px var(--mono);fill:var(--faint)}
+.bc .sub{font-size:8px;baseline-shift:sub}
+.bcb{stroke:var(--line);stroke-width:1}
+.bc path:hover{opacity:.8}
+.s0{fill:#eb6834;background:#eb6834} .s1{fill:#1baf7a;background:#1baf7a} .s2{fill:#eda100;background:#eda100}
+.s3{fill:#e87ba4;background:#e87ba4} .s4{fill:#008300;background:#008300} .s5{fill:#2a78d6;background:#2a78d6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .s5{fill:#3987e5;background:#3987e5}
+  :root:not([data-theme="light"]) .s0{fill:#d95926;background:#d95926} :root:not([data-theme="light"]) .s2{fill:#c98500;background:#c98500}
+  :root:not([data-theme="light"]) .s3{fill:#d55181;background:#d55181}}
+details.tables{margin-top:22px} details.tables summary{cursor:pointer;color:var(--dim);font-size:14px}
+
+/* ---- tables ---- */
+.tscroll{overflow-x:auto;border:1px solid var(--line);border-radius:11px;background:var(--bg)}
+table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+th,td{padding:7px 6px;text-align:center;border-bottom:1px solid var(--line)}
+/* the SE(3) table has 17 columns: give this section a wider column than the prose */
+#results .wrap{max-width:1160px}
+#browse .wrap{max-width:var(--maxw)}       /* same column as the embeddings; the panel pokes out 12px each side */
+#results .tscroll{border:0;border-radius:0}
+#results .caption{max-width:120ch;font-size:14px}
+#compare .akgrid{max-width:680px;margin:0 auto}   /* the two-panel videos, a bit smaller than full width */
+tbody tr{background:var(--bg)}
+tbody tr:nth-child(even){background:var(--surface)}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:inherit}
+thead tr{background:var(--bg)}
+thead th{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--faint);font-weight:500}
+thead tr:first-child th{border-bottom:0;padding-bottom:2px}
+thead th.grp span{display:block;margin:0 10px;padding-bottom:5px;border-bottom:2px solid var(--dim);text-align:center}
+tbody tr:last-child td{border-bottom:0}
+tbody tr.ours{background:color-mix(in srgb,var(--axis-z) 9%,var(--bg))}
+tbody tr.ours td:first-child{font-weight:600;box-shadow:inset 3px 0 0 var(--axis-z)}
+td.b{font-weight:700;color:var(--text)}
+td.u{text-decoration:underline;text-underline-offset:3px}
+
+pre{background:var(--surface);border:1px solid var(--line);color:var(--text);padding:18px 20px;
+  border-radius:11px;overflow-x:auto;font:400 13px/1.6 var(--mono);text-align:left}
+footer{padding:40px 0 70px;color:var(--dim);font-size:14px;
+  text-align:center;border-top:1px solid var(--line);background:var(--surface)}
+footer p{margin:0 0 8px}
+footer .fine{color:var(--faint);font-family:var(--mono);font-size:11.5px}
+button:focus-visible,a:focus-visible{outline:2px solid var(--axis-z);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:640px){
+  .drow{grid-template-columns:1fr}
+  .viewer{min-height:260px}
+  .pip{width:34%;min-width:110px}
+  .pbar{width:calc(100% - 16px);bottom:8px;gap:8px;padding:6px 8px}
+  .pbar .ptime{min-width:0}
+  section{padding:44px 0}
+  .thumb-grid{grid-template-columns:repeat(auto-fill,68px)}
+  .thumb-scroll{max-height:176px}
+}
+
+/* ---- 3D layer toggles, floated over the viewer ---- */
+/* Below the canvas they were a reach away from the thing they change; over it
+   the control and its effect are in one place. Light in both themes, because it
+   sits on the viewer's black canvas either way. */
+.viewer{position:relative}
+.layers{position:absolute;top:12px;right:12px;z-index:5;display:flex;flex-direction:column;
+  gap:2px;padding:10px 12px 11px;border-radius:9px;min-width:188px;
+  background:rgba(252,252,253,.93);backdrop-filter:blur(8px);
+  border:1px solid rgba(20,22,30,.12);box-shadow:0 6px 22px -8px rgba(0,0,0,.45)}
+.layers h4{margin:0 0 6px;font:600 10px/1 var(--mono);letter-spacing:.12em;
+  text-transform:uppercase;color:#8a9099}
+.layers label{display:flex;align-items:center;gap:8px;cursor:pointer;
+  font:400 12.5px/1.9 var(--body);color:#2b2f38;white-space:nowrap}
+.layers label:hover{color:#15171a}
+.layers input{accent-color:#3b63c7;width:13px;height:13px;cursor:pointer;margin:0}
+.layers hr{border:0;border-top:1px solid rgba(20,22,30,.12);margin:6px 0 4px}
+@media (max-width:640px){.layers{position:static;margin-top:10px;min-width:0}}
+
+</style></head><body>
+<nav class="top"><div class="wrap"><a class="brand" href="index.html"><span class="m">MoSE3</span></a>
+<div class="navlinks"><a href="teasers.html">More teasers</a><a href="more_3d.html">More 3D</a><a href="more_results.html">More results</a><a href="tables.html">Result tables</a><a href="index.html">&larr; back to the page</a></div></div></nav>
+<section><div class="wrap"><h2>More rigidity embeddings</h2>
+<p class="lede">9 clips. Drag the divider to compare with the input.</p>
+<div class="emgrid"><figure class="emcell"><div class="rv"><video class="base" src="assets/input/videos__tennis.mp4" loop muted playsinline preload="none" aria-label="Tennis, input"></video><video class="top" src="assets/views/videos__tennis__pca.mp4" poster="assets/embposter/videos__tennis.webp" loop muted playsinline preload="none" aria-label="Tennis, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure><figure class="emcell"><div class="rv"><video class="base" src="assets/input/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206.mp4" loop muted playsinline preload="none" aria-label="Indian sari woman dancing, input"></video><video class="top" src="assets/views/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206__pca.mp4" poster="assets/embposter/cloth_tapir_style__pexels_indian_sari_woman_dancing_8811206.webp" loop muted playsinline preload="none" aria-label="Indian sari woman dancing, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure><figure class="emcell"><div class="rv"><video class="base" src="assets/input/articulated__scissors_cutting_paper_6977414.mp4" loop muted playsinline preload="none" aria-label="Scissors cutting paper, input"></video><video class="top" src="assets/views/articulated__scissors_cutting_paper_6977414__pca.mp4" poster="assets/embposter/articulated__scissors_cutting_paper_6977414.webp" loop muted playsinline preload="none" aria-label="Scissors cutting paper, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure><figure class="emcell"><div class="rv"><video class="base" src="assets/input/pexels_boss_themes__pexels_flowing_dress_wind_35920103.mp4" loop muted playsinline preload="none" aria-label="Flowing dress wind, input"></video><video class="top" src="assets/views/pexels_boss_themes__pexels_flowing_dress_wind_35920103__pca.mp4" poster="assets/embposter/pexels_boss_themes__pexels_flowing_dress_wind_35920103.webp" loop muted playsinline preload="none" aria-label="Flowing dress wind, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure><figure class="emcell"><div class="rv"><video class="base" src="assets/input/pt_double_stretch_sloth.mp4" loop muted playsinline preload="none" aria-label="Double stretch sloth, input"></video><video class="top" src="assets/views/pt_double_stretch_sloth__pca.mp4" poster="assets/embposter/pt_double_stretch_sloth.webp" loop muted playsinline preload="none" aria-label="Double stretch sloth, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure><figure class="emcell"><div class="rv"><video class="base" src="assets/input/bridge0.mp4" loop muted playsinline preload="none" aria-label="BridgeData, input"></video><video class="top" src="assets/views/bridge0__pca.mp4" poster="assets/embposter/bridge0.webp" loop muted playsinline preload="none" aria-label="BridgeData, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure><figure class="emcell"><div class="rv"><video class="base" src="assets/input/pt_double_stretch_zebra.mp4" loop muted playsinline preload="none" aria-label="Double stretch zebra, input"></video><video class="top" src="assets/views/pt_double_stretch_zebra__pca.mp4" poster="assets/embposter/pt_double_stretch_zebra.webp" loop muted playsinline preload="none" aria-label="Double stretch zebra, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure><figure class="emcell"><div class="rv"><video class="base" src="assets/input/collision__dominoes_falling_8102764.mp4" loop muted playsinline preload="none" aria-label="Dominoes falling, input"></video><video class="top" src="assets/views/collision__dominoes_falling_8102764__pca.mp4" poster="assets/embposter/collision__dominoes_falling_8102764.webp" loop muted playsinline preload="none" aria-label="Dominoes falling, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure><figure class="emcell"><div class="rv"><video class="base" src="assets/input/dycheck_iphone__teddy.mp4" loop muted playsinline preload="none" aria-label="Teddy, input"></video><video class="top" src="assets/views/dycheck_iphone__teddy__pca.mp4" poster="assets/embposter/dycheck_iphone__teddy.webp" loop muted playsinline preload="none" aria-label="Teddy, rigidity embedding"></video><span class="rvtag l">Input</span><span class="rvtag r">Rigidity embedding</span><div class="rvline"><span class="rvknob">&#8596;</span></div></div></figure></div></div></section>
+<script>const $ = s => document.querySelector(s);
+/* ---- embedding gallery: play only what is on screen ---- */
+/* Six looping videos decoding at once stutters on a laptop, and the ones
+   scrolled past are not being looked at anyway. */
+{
+  const rvs = document.querySelectorAll('.emcell .rv');
+  if (rvs.length) {
+    const io = new IntersectionObserver(es => es.forEach(e => {
+      const vids = e.target.querySelectorAll('video');
+      if (e.isIntersecting) vids.forEach(v => { v.preload = 'auto'; v.play().catch(() => {}); });
+      else vids.forEach(v => v.pause());
+    }), {rootMargin: '100px'});
+    rvs.forEach(rv => {
+      io.observe(rv);
+      const base = rv.querySelector('.base'), top = rv.querySelector('.top'), line = rv.querySelector('.rvline');
+      // one clock: the embedding follows the input video
+      base.addEventListener('timeupdate', () => {
+        if (Math.abs(top.currentTime - base.currentTime) > 0.08) top.currentTime = base.currentTime;
+      });
+      const set = x => {
+        const r = rv.getBoundingClientRect();
+        const p = Math.max(0, Math.min(100, (x - r.left) / r.width * 100));
+        top.style.clipPath = `inset(0 0 0 ${p}%)`; line.style.left = p + '%';
+      };
+      let down = false;
+      rv.addEventListener('pointerdown', e => { down = true; rv.setPointerCapture(e.pointerId); set(e.clientX); });
+      rv.addEventListener('pointermove', e => { if (down) set(e.clientX); });
+      rv.addEventListener('pointerup', () => { down = false; });
+      rv.addEventListener('pointercancel', () => { down = false; });
+    });
+  }
+}</script></body></html>
