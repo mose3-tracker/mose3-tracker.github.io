@@ -268,6 +268,8 @@ h1 .m{color:var(--axis-z)}
 @media (max-width:760px){.rtrow{grid-template-columns:1fr}.rtclip{text-align:center}.rtx{text-align:center}}
 
 /* ---- Art-Kubric ---- */
+#artkubric .links a:hover{background:var(--text);border-color:var(--text);color:var(--bg)}
+#artkubric .links svg{opacity:1}
 .akgrid{display:grid;gap:16px;grid-template-columns:1fr}
 .akrow{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;
   overflow:hidden}
@@ -514,7 +516,7 @@ to real-world videos despite being trained solely on synthetic motion data.</p>
   under physics, observed by a moving camera. Every scene comes with dense 2D and 3D tracks, per-link
   SE(3) poses, a per-pixel partition by rigid motion, depth and segmentation: 163M labelled
   tracks in total. The generation pipeline is released with the data.</p>
-  <p class="links"><a href="https://huggingface.co/datasets/mose3-tracker/Art-Kubric">Dataset</a><a href="https://github.com/mose3-tracker/Art-Kubric">Generation code</a></p>
+  <p class="links"><a href="https://github.com/mose3-tracker/Art-Kubric"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>Code</a><a href="https://huggingface.co/datasets/mose3-tracker/Art-Kubric"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/></svg>Dataset</a></p>
   <div class="panel">
     <div class="player ak3" style="aspect-ratio:1"><video id="akplayer" loop muted playsinline autoplay></video></div>
     <div class="thumb-grid"><button class="thumb ak" data-s="0001" aria-pressed="true" title="scene 0001"><img src="assets/artkubric/0001.webp" alt="scene 0001" loading="lazy"><span class="thumb-label">0001</span></button><button class="thumb ak" data-s="0002" aria-pressed="false" title="scene 0002"><img src="assets/artkubric/0002.webp" alt="scene 0002" loading="lazy"><span class="thumb-label">0002</span></button><button class="thumb ak" data-s="0003" aria-pressed="false" title="scene 0003"><img src="assets/artkubric/0003.webp" alt="scene 0003" loading="lazy"><span class="thumb-label">0003</span></button><button class="thumb ak" data-s="0004" aria-pressed="false" title="scene 0004"><img src="assets/artkubric/0004.webp" alt="scene 0004" loading="lazy"><span class="thumb-label">0004</span></button><button class="thumb ak" data-s="0005" aria-pressed="false" title="scene 0005"><img src="assets/artkubric/0005.webp" alt="scene 0005" loading="lazy"><span class="thumb-label">0005</span></button></div>
